@@ -58,8 +58,8 @@ We'll define the time period and locations we want to fetch data for:
 ```{r define-parameters}
 # Define reference dates (Saturdays - forecast hub convention)
 reference_dates <- seq(
-  as.Date("2025-10-25"),  # First Saturday of 2024
-  as.Date("2025-12-27"),  # Last Saturday of March
+  as.Date("2025-10-25"),
+  as.Date("2025-12-27"),
   by = "week"
 )
 
