@@ -383,3 +383,4 @@ docs/site/
 # vscode settings folder
 .vscode/
 .DS_Store
+inst/doc

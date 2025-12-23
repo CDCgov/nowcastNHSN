@@ -1,0 +1,188 @@
+---
+title: "Getting Started with `nowcastNHSN`"
+output:
+  rmarkdown::html_vignette:
+    code_folding: show
+vignette: >
+  %\VignetteIndexEntry{Getting Started with nowcastNHSN}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nowcastNHSN)
+library(baselinenowcast)
+library(ggplot2)
+library(dplyr)
+```
+
+## Introduction
+
+The `nowcastNHSN` package provides tools for fetching and doing inference with vintages of National Healthcare Safety Network (NHSN) hospitalisation incidence data for Covid-19, Influenza and RSV.
+The goal of `nowcastNHSN` is to help with forecasting these signals in real-time, as new target data arrives in forecast hubs on a mid-week (Wednesday) schedule, by offering easy access to historical reporting data and nowcasting model outputs.
+This vignette demonstrates how to fetch reporting data and prepare it for nowcasting analysis using the `baselinenowcast::as_reporting_triangle` package.
+
+**Forecasting hubs:**
+
+- [COVID-19 Forecast Hub](https://github.com/CDCgov/covid19-forecast-hub)
+- [FluSight Forecast Hub](https://github.com/cdcepi/FluSight-forecast-hub)
+- [RSV Forecast Hub](https://github.com/CDCgov/rsv-forecast-hub)
+
+## Data Fetching Overview
+
+### Choosing a NHSN Data source
+
+The primary function for fetching reporting data is `fetch_reporting_data()`, which dispatches on different data sources.
+In this vignette, we'll focus on the `EpiData` source, which provides historical versions of NHSN hospital admission data maintained by the Delphi group at Carnegie Mellon University.
+
+```{r create-source}
+# Create an epidata source for COVID-19 hospital admissions
+source <- epidata_source(
+  target = "covid",
+  geo_types = "state"
+)
+```
+
+## Fetching Reporting Data
+
+In `nowcastNHSN`, we follow the forecast hub convention of using Saturdays as the reference date for weekly data.
+We'll define the time period and locations we want to fetch data for:
+
+```{r define-parameters}
+# Define reference dates (Saturdays - forecast hub convention)
+reference_dates <- seq(
+  as.Date("2025-10-25"),
+  as.Date("2025-12-27"),
+  by = "week"
+)
+
+# For report dates, use "*" to get all available issue dates
+# This will retrieve the full reporting history
+report_dates <- "*"
+
+# Fetch data for specific states (lowercase for epidata API)
+locations <- c("ca", "ny")
+```
+
+Now we can fetch the reporting data and filter out any report dates that are too far in the future:
+
+```{r fetch-data, message = FALSE}
+# Fetch the data
+reporting_data <- fetch_reporting_data(
+  source = source,
+  reference_dates = reference_dates,
+  report_dates = report_dates,
+  locations = locations
+) |>
+  filter(report_date <= max(reference_date) + 14)
+
+# View the first few rows
+head(reporting_data)
+```
+
+The returned data frame contains columns:
+
+- `reference_date`: The Saturday ending the week when events occurred
+- `report_date`: The Saturday when the data was reported
+- `location`: Geographic identifier (state abbreviation or "US")
+- `count`: Number of confirmed COVID-19 hospital admissions
+- `signal`: The epidata signal name
+
+### Visualizing Reporting Delays
+
+A key feature of reporting data is that counts for the same reference date can change as new reports come in.
+This backfilling of the data is a common challenge in using the latest data for real-time forecasting.
+We can visualize this by plotting the time series of Californian Covid-19 hospitalisations at different report dates:
+
+```{r plot-delays, fig.width = 7, fig.height = 5, class.source = 'fold-hide'}
+# Select a few report dates to compare
+selected_reports <- reporting_data %>%
+  filter(
+    location == "ca",  # Focus on California
+  )
+
+# Create the plot
+ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(report_date))) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "COVID-19 Hospital Admissions in California",
+    subtitle = "How reported counts change as data is updated",
+    x = "Reference Date (Week Ending)",
+    y = "Confirmed Admissions",
+    color = "Report Date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_brewer(palette = "Set1")
+```
+
+This plot shows how the same reference dates can have different reported counts depending on when the data was reported.
+Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports.
+
+### Converting to a Reporting Triangle
+
+To perform nowcasting analysis, we need to convert the fetched reporting data into a reporting triangle format, which organizes counts by reference date and delay.
+We can use the `baselinenowcast::as_reporting_triangle()` function to do this.
+The data from `fetch_reporting_data()` is already in the long format required by `baselinenowcast::as_reporting_triangle()`.
+Note that the reporting triangle is created for a single location at a time:
+
+```{r create-triangle, message = FALSE}
+# Filter to a single location (California) for the reporting triangle
+ca_data <- reporting_data %>%
+  filter(location == "ca")
+
+# Convert to reporting triangle format
+reporting_triangle <- as_reporting_triangle(
+  ca_data,
+  delays_unit = "weeks",
+)
+
+# View the reporting triangle structure
+print(reporting_triangle)
+```
+
+The reporting triangle is now ready for nowcasting analysis using the `baselinenowcast` package.
+
+### Heatmap View of Reporting Triangle
+
+A heatmap provides another useful way to visualize the reporting triangle structure, showing how counts evolve across different combinations of reference and report dates:
+
+```{r plot-heatmap, fig.width = 8, fig.height = 6, class.source = 'fold-hide'}
+# Extract data from reporting triangle for visualization
+rt_data <- reporting_triangle %>%
+  as.data.frame() %>%
+  mutate(
+    # Convert delay back to report_date for the heatmap
+    report_date = reference_date + delay * 7  # delay is in weeks
+  )
+
+ggplot(rt_data, aes(x = reference_date, y = report_date, fill = count)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+  labs(
+    title = "Reporting Triangle Heatmap - California COVID-19 Admissions",
+    subtitle = "Each cell shows the count reported for a reference date as of a report date",
+    x = "Reference Date (Week Ending)",
+    y = "Report Date (Week Ending)",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+In this heatmap, the diagonal represents the most recent data available at each time point, while values below the diagonal show how historical data has been revised upward through backfill.
+
+## Using `baselinenowcast` for Nowcasting
+
+_To be implemented in future versions of this vignette._
