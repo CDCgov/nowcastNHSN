@@ -36,7 +36,7 @@ epidata_source <- function(
 #'
 #' Generic function to fetch reporting triangle data using S3 method dispatch.
 #'
-#' @param source A source object created by [epidata_source()] or [github_source()]
+#' @param source A source object created by [epidata_source()]
 #' @param reference_dates Date vector or epirange of reference dates
 #' @param report_dates Date vector or epirange of report dates
 #' @param locations Character vector of locations
@@ -85,6 +85,9 @@ fetch_reporting_data.epidata_source <- function(
 }
 
 #' Default method for unsupported source types
+#'
+#' @param source A source object
+#' @param ... Additional arguments (ignored)
 #' @export
 fetch_reporting_data.default <- function(source, ...) {
   rlang::abort(sprintf(

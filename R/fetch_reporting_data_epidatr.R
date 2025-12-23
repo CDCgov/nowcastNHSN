@@ -109,7 +109,7 @@ fetch_nhsn_data <- function(
 #'
 #' @description
 #' Wrapper around [fetch_nhsn_data()] that reshapes and converts the output
-#' to a long format suitable for [baselinenowcast::as_reporting_triangle()].
+#' to a long format suitable for reporting triangle construction.
 #' Converts week-ending dates from Sunday (Epidata format) to Saturday
 #' (forecast hub format).
 #'
@@ -128,8 +128,7 @@ fetch_nhsn_data <- function(
 #' @param report_dates A timeset object for specific report dates, or `"*"`
 #'   for most all. Default is `"*"`.
 #'
-#' @return A data frame in long format suitable for
-#' [baselinenowcast::as_reporting_triangle()]
+#' @return A data frame in long format suitable for reporting triangle construction
 #'   with columns:
 #'   - `reference_date`: Date of the event (week-ending Saturday)
 #'   - `report_date`: Date when data was reported. This is the

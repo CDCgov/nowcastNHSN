@@ -6,6 +6,11 @@
 \usage{
 \method{fetch_reporting_data}{default}(source, ...)
 }
+\arguments{
+\item{source}{A source object}
+
+\item{...}{Additional arguments (ignored)}
+}
 \description{
 Default method for unsupported source types
 }
