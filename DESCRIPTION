@@ -1,0 +1,18 @@
+Package: nowcastNHSN
+Title: Nowcasting Tools for NHSN Data
+Version: 0.0.0.9000
+Authors@R: 
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Description: Provides utilities for nowcasting and working with National
+    Healthcare Safety Network (NHSN) data, including date conversion
+    utilities for epidemiological week formats.
+License: Apache License (>= 2)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: 
+    epidatr,
+    MMWRweek,
+    rlang
+Remotes:
+    cmu-delphi/epidatr

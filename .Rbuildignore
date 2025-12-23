@@ -1,0 +1,15 @@
+^LICENSE\.md$
+^\.github$
+^\.pre-commit-config\.yaml$
+^\.secrets\.baseline$
+^\.lintr$
+^ruff\.toml$
+^\.DS_Store$
+^\.gitignore$
+^\.gitattributes$
+^CONTRIBUTING\.md$
+^DISCLAIMER\.md$
+^code-of-conduct\.md$
+^open_practices\.md$
+^rules_of_behavior\.md$
+^thanks\.md$
