@@ -161,11 +161,9 @@ fetch_reporting_data_epidatr <- function(
       signal
     ) |>
     dplyr::mutate(
-      # Convert dates for weekly reporting from Sunday (epidatr) to Saturday
-      # (as reported on GitHub)
-      # reference_date: shift back 1 day
-      # report_date: shift forward 6 days
-      reference_date = reference_date - 1,
+      # Convert dates for weekly reporting from Sunday beginning week date to
+      # Saturday end week date(as reported on GitHub)
+      reference_date = reference_date + 6,
       report_date = report_date + 6
     ) |>
     dplyr::arrange(reference_date, report_date)
