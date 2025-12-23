@@ -13,16 +13,21 @@ as_epirange <- function(x) {
 
 #' Create an epidata data source object
 #'
-#' @param signal Character, epidata signal name (e.g.,
-#' "confirmed_admissions_covid_ew_prelim")
+#' @param target Character, disease target: "covid", "flu", or "rsv"
 #' @param geo_types Character vector, geographic types to query (e.g., "state",
 #' "nation")
 #' @return A source object of class "epidata_source"
 #' @export
 epidata_source <- function(
-  signal,
+  target = c("covid", "flu", "rsv"),
   geo_types = c("state", "nation")
 ) {
+  # Validate and match target
+  target <- match.arg(target)
+
+  # Convert target to full signal name
+  signal <- sprintf("confirmed_admissions_%s_ew_prelim", target)
+
   structure(
     list(
       signal = signal,
