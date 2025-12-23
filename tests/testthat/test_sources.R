@@ -1,9 +1,9 @@
 test_that("epidata_source creates correct class", {
-  src <- epidata_source(signal = "test_signal")
+  src <- epidata_source(target = "covid")
 
   expect_s3_class(src, "epidata_source")
   expect_s3_class(src, "reporting_source")
-  expect_equal(src$signal, "test_signal")
+  expect_equal(src$signal, "confirmed_admissions_covid_ew_prelim")
 })
 
 test_that("fetch_reporting_data.default errors on invalid source", {

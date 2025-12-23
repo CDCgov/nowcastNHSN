@@ -4,11 +4,13 @@
 \alias{epidata_source}
 \title{Create an epidata data source object}
 \usage{
-epidata_source(signal, geo_types = c("state", "nation"))
+epidata_source(
+  target = c("covid", "flu", "rsv"),
+  geo_types = c("state", "nation")
+)
 }
 \arguments{
-\item{signal}{Character, epidata signal name (e.g.,
-"confirmed_admissions_covid_ew_prelim")}
+\item{target}{Character, disease target: "covid", "flu", or "rsv"}
 
 \item{geo_types}{Character vector, geographic types to query (e.g., "state",
 "nation")}
