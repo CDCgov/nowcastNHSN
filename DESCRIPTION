@@ -1,10 +1,9 @@
 Package: nowcastNHSN
 Title: Nowcasting Tools for NHSN Data
 Version: 0.0.0.9000
-Authors@R: c(
-    person("Sam", "Brand", email = "usi1@cdc.gov", role = c("aut", "cre")),
-    person("Dylan", "Morris", email = "dzl1@cdc.gov", role = "ctb")
-)
+Authors@R:
+    c(person("Sam", "Brand", email = "usi1@cdc.gov", role = c("aut", "cre")),
+      person("Dylan", "Morris", email = "dzl1@cdc.gov", role = "ctb"))
 Description: Provides utilities for nowcasting and working with National
     Healthcare Safety Network (NHSN) data, including date conversion
     utilities for epidemiological week formats.
@@ -16,12 +15,14 @@ Imports:
     baselinenowcast (>= 0.0.0.1000),
     dplyr,
     epidatr,
-    MMWRweek,
+    forecasttools (>= 0.1.7),
+    lubridate,
     purrr,
     rlang
 Remotes:
     cmu-delphi/epidatr,
-    epinowcast/baselinenowcast
+    epinowcast/baselinenowcast,
+    CDCgov/forecasttools
 Suggests:
     ggplot2,
     knitr,
