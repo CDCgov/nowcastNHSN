@@ -37,7 +37,7 @@ validate_all_saturdays <- function(dates) {
 #' The function:
 #' 1. Validates that all dates are Saturdays
 #' 2. Adds one day to convert to Sunday (epiweeks end on Sunday)
-#' 3. Converts to MMWR epiweek format (YYYYWW)
+#' 3. Converts to MMWR epiweek format (YYYYWW) using forecasttools
 #' 4. Returns an `epidatr::epirange` spanning from the earliest to latest week
 #'
 #' **Why the conversion?**
@@ -52,14 +52,13 @@ saturdays_to_epirange <- function(dates) {
   validate_all_saturdays(dates)
 
   # Convert Saturdays to Sundays (epiweeks end on Sunday)
-  sundays <- dates + 1
+  sundays <- dates + lubridate::days(1)
 
-  # Convert to MMWR epiweek format (YYYYWW)
+  # Convert to MMWR epiweek format (YYYYWW) using forecasttools
   epiweeks <- vapply(
     sundays,
     function(d) {
-      mmwr <- MMWRweek::MMWRweek(d)
-      mmwr$MMWRyear * 100 + mmwr$MMWRweek
+      forecasttools::date_to_epiweek(d)
     },
     numeric(1)
   )
