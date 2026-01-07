@@ -6,9 +6,17 @@ reference_dates <- seq(
 )
 loc <- "ca"
 
-# Note: httptest2 mocking doesn't work with epidatr's HTTP client implementation.
-# Even with refresh_cache = TRUE passed via ..., requests aren't intercepted.
-# Using skip_if_offline() as the recommended approach for network-dependent tests.
+test_that("test fixture dates are all Saturdays", {
+  # All dates should be Saturdays (day 6) per MMWR epiweek convention
+  expect_true(all(weekdays(report_dates) == "Saturday"))
+  expect_true(all(weekdays(reference_dates) == "Saturday"))
+})
+
+# Note: httptest2 doesn't work with epidatr because epidatr uses httr (v1), not httr2.
+# epidatr makes HTTP requests via httr::RETRY() and httr::content() (see R/request.R
+# in cmu-delphi/epidatr), which httptest2 can't intercept. The original httptest
+# package could theoretically work, but epidatr also has its own caching layer that
+# makes mocking complex. Using skip_if_offline() is the recommended approach.
 test_that("fetch_reporting_data works with epidatr_source", {
   skip_if_offline()
 
