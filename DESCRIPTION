@@ -15,16 +15,15 @@ Imports:
     baselinenowcast (>= 0.0.0.1000),
     dplyr,
     epidatr,
-    forecasttools (>= 0.1.7),
     lubridate,
     purrr,
     rlang
 Remotes:
     cmu-delphi/epidatr,
-    epinowcast/baselinenowcast,
-    CDCgov/forecasttools
+    epinowcast/baselinenowcast
 Suggests:
     ggplot2,
+    httptest2,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
