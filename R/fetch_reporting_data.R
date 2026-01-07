@@ -1,17 +1,30 @@
 #' Convert dates to epirange format
 #'
-#' @param x Date vector or epirange object
-#' @return epirange object
+#' @param x Date vector, epirange object, or wildcard character ("*")
+#' @return epirange object or wildcard
 #' @noRd
-as_epirange <- function(x) {
+to_epirange <- function(x) {
+  # Pass through EpiRange and wildcard unchanged
+  if (inherits(x, "EpiRange") || identical(x, "*")) {
+    return(x)
+  }
+
+  # Convert Date vectors to epirange
   if (inherits(x, "Date")) {
     validate_all_saturdays(x)
-    x <- saturdays_to_epirange(x)
+    return(saturdays_to_epirange(x))
   }
-  x
+
+  # Error for unsupported types
+  rlang::abort(
+    sprintf(
+      "Invalid input type. Expected Date, EpiRange, or \"*\", got: %s",
+      paste(class(x), collapse = ", ")
+    )
+  )
 }
 
-#' Create an epidata data source object
+#' Create a data source object for the Delphi Epidata API
 #'
 #' @param target Character, disease target: "covid", "flu", or "rsv"
 #' @param geo_types Character vector, geographic types to query (e.g., "state",
@@ -75,8 +88,8 @@ fetch_reporting_data.epidata_source <- function(
   ...
 ) {
   # Convert to epirange if Dates are provided, otherwise use as-is
-  report_dates <- as_epirange(report_dates)
-  reference_dates <- as_epirange(reference_dates)
+  report_dates <- to_epirange(report_dates)
+  reference_dates <- to_epirange(reference_dates)
 
   purrr::map_dfr(source$geo_types, function(geo_type) {
     fetch_reporting_data_epidatr(
