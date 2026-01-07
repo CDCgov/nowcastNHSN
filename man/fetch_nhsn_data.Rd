@@ -32,9 +32,9 @@ recent. Default is \code{"*"}.}
 A tibble with columns including:
 \itemize{
 \item \code{geo_value}: Geographic identifier
-\item \code{time_value}: Reference date (week-ending Sunday from Epidata)
+\item \code{time_value}: Reference date (week-ending Saturday)
 \item \code{value}: Number of confirmed admissions
-\item \code{issue}: Issue date (week-ending Sunday of the epiweek when data was
+\item \code{issue}: Issue date (week-ending Saturday of the epiweek when data was
 published)
 \item \code{lag}: Days between reference date and issue date
 \item \code{signal}: Signal name
@@ -51,7 +51,7 @@ NB:
 \itemize{
 \item For \code{time_values} and \code{issues}, you can pass an \code{epidatr::timeset} object
 however this source only supports epiweeks (not dates).
-\item Output week dates are converted from Sundays (Epidata) to Saturdays to
-align with reporting dates from forecast hub data.
+\item Output dates are Saturday week-endings, matching both MMWR epiweeks and
+forecast hub conventions.
 }
 }

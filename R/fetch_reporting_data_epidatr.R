@@ -53,8 +53,8 @@ validate_nhsn_params <- function(signal, geo_type) {
 #' NB:
 #' - For `time_values` and `issues`, you can pass an `epidatr::timeset` object
 #' however this source only supports epiweeks (not dates).
-#' - Output week dates are converted from Sundays (Epidata) to Saturdays to
-#' align with reporting dates from forecast hub data.
+#' - Output dates are Saturday week-endings, matching both MMWR epiweeks and
+#' forecast hub conventions.
 #'
 #' @param signal Character string specifying the NHSN signal to fetch.
 #'   Default is `"confirmed_admissions_covid_ew_prelim"`.
@@ -68,9 +68,9 @@ validate_nhsn_params <- function(signal, geo_type) {
 #'   recent. Default is `"*"`.
 #' @return A tibble with columns including:
 #'   - `geo_value`: Geographic identifier
-#'   - `time_value`: Reference date (week-ending Sunday from Epidata)
+#'   - `time_value`: Reference date (week-ending Saturday)
 #'   - `value`: Number of confirmed admissions
-#'   - `issue`: Issue date (week-ending Sunday of the epiweek when data was
+#'   - `issue`: Issue date (week-ending Saturday of the epiweek when data was
 #' published)
 #'   - `lag`: Days between reference date and issue date
 #'   - `signal`: Signal name
@@ -110,8 +110,8 @@ fetch_nhsn_data <- function(
 #' @description
 #' Wrapper around [fetch_nhsn_data()] that reshapes and converts the output
 #' to a long format suitable for reporting triangle construction.
-#' Converts week-ending dates from Sunday (Epidata format) to Saturday
-#' (forecast hub format).
+#' Output dates are Saturday week-endings, matching both MMWR epiweeks and
+#' forecast hub conventions.
 #'
 #' @param signal Character string specifying the NHSN signal to fetch.
 #'   Default is `"confirmed_admissions_covid_ew_prelim"`.
@@ -161,8 +161,8 @@ fetch_reporting_data_epidatr <- function(
       signal
     ) |>
     dplyr::mutate(
-      # Convert dates for weekly reporting from Sunday beginning week date to
-      # Saturday end week date(as reported on GitHub)
+      # epidatr returns week start dates; convert to week-ending Saturdays
+      # to match forecast hub and MMWR epiweek conventions
       reference_date = reference_date + 6,
       report_date = report_date + 6
     ) |>

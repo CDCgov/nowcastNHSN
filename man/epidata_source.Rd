@@ -2,7 +2,7 @@
 % Please edit documentation in R/fetch_reporting_data.R
 \name{epidata_source}
 \alias{epidata_source}
-\title{Create an epidata data source object}
+\title{Create a data source object for the Delphi Epidata API}
 \usage{
 epidata_source(
   target = c("covid", "flu", "rsv"),
@@ -19,5 +19,5 @@ epidata_source(
 A source object of class "epidata_source"
 }
 \description{
-Create an epidata data source object
+Create a data source object for the Delphi Epidata API
 }

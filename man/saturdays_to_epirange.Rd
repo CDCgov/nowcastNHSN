@@ -2,7 +2,7 @@
 % Please edit documentation in R/date_utils.R
 \name{saturdays_to_epirange}
 \alias{saturdays_to_epirange}
-\title{Convert Saturday dates to \code{epidatr::epirange}}
+\title{Convert Saturday dates to \code{epidatr::epirange} with MMWR epiweeks}
 \usage{
 saturdays_to_epirange(dates)
 }
@@ -15,23 +15,19 @@ to the input dates.
 }
 \description{
 Converts a sequence of Saturday dates (forecast hub convention) to an
-\code{epidatr::epirange} object (Sunday-ending weeks in YYYYWW format).
-This allows using the same date inputs for both GitHub fetcher (Saturdays)
-and epidatr fetcher (epiweeks).
+\code{epidatr::epirange} object (Saturday-ending weeks in YYYYWW format).
 }
 \details{
 The function:
 \enumerate{
 \item Validates that all dates are Saturdays
-\item Adds one day to convert to Sunday (epiweeks end on Sunday)
-\item Converts to MMWR epiweek format (YYYYWW) using forecasttools
+\item Converts to MMWR epiweek format (YYYYWW) using lubridate
 \item Returns an \code{epidatr::epirange} spanning from the earliest to latest week
 }
 
-\strong{Why the conversion?}
+\strong{Why Saturday dates work directly?}
 \itemize{
-\item Forecast hub uses Saturday as the week-ending date
-\item MMWR/CDC epiweeks end on Sunday
+\item Both forecast hub and MMWR/CDC epiweeks end on Saturday
 \item epidatr API requires epiweek format (YYYYWW)
 }
 }

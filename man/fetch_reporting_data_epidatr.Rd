@@ -43,6 +43,6 @@ week-ending Saturday \emph{after} the epiweek when data was published.
 \description{
 Wrapper around \code{\link[=fetch_nhsn_data]{fetch_nhsn_data()}} that reshapes and converts the output
 to a long format suitable for reporting triangle construction.
-Converts week-ending dates from Sunday (Epidata format) to Saturday
-(forecast hub format).
+Output dates are Saturday week-endings, matching both MMWR epiweeks and
+forecast hub conventions.
 }

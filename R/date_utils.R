@@ -20,13 +20,11 @@ validate_all_saturdays <- function(dates) {
 }
 
 
-#' Convert Saturday dates to `epidatr::epirange`
+#' Convert Saturday dates to `epidatr::epirange` with MMWR epiweeks
 #'
 #' @description
 #' Converts a sequence of Saturday dates (forecast hub convention) to an
-#' `epidatr::epirange` object (Sunday-ending weeks in YYYYWW format).
-#' This allows using the same date inputs for both GitHub fetcher (Saturdays)
-#' and epidatr fetcher (epiweeks).
+#' `epidatr::epirange` object (Saturday-ending weeks in YYYYWW format).
 #'
 #' @param dates A vector of dates. Must all be Saturdays.
 #'
@@ -36,13 +34,11 @@ validate_all_saturdays <- function(dates) {
 #' @details
 #' The function:
 #' 1. Validates that all dates are Saturdays
-#' 2. Adds one day to convert to Sunday (epiweeks end on Sunday)
-#' 3. Converts to MMWR epiweek format (YYYYWW) using forecasttools
-#' 4. Returns an `epidatr::epirange` spanning from the earliest to latest week
+#' 2. Converts to MMWR epiweek format (YYYYWW) using lubridate
+#' 3. Returns an `epidatr::epirange` spanning from the earliest to latest week
 #'
-#' **Why the conversion?**
-#' - Forecast hub uses Saturday as the week-ending date
-#' - MMWR/CDC epiweeks end on Sunday
+#' **Why Saturday dates work directly?**
+#' - Both forecast hub and MMWR/CDC epiweeks end on Saturday
 #' - epidatr API requires epiweek format (YYYYWW)
 #' @export
 saturdays_to_epirange <- function(dates) {
@@ -51,17 +47,8 @@ saturdays_to_epirange <- function(dates) {
   # Validate all dates are Saturdays
   validate_all_saturdays(dates)
 
-  # Convert Saturdays to Sundays (epiweeks end on Sunday)
-  sundays <- dates + lubridate::days(1)
-
-  # Convert to MMWR epiweek format (YYYYWW) using forecasttools
-  epiweeks <- vapply(
-    sundays,
-    function(d) {
-      forecasttools::date_to_epiweek(d)
-    },
-    numeric(1)
-  )
+  # Convert to MMWR epiweek format (YYYYWW) using lubridate
+  epiweeks <- lubridate::epiyear(dates) * 100 + lubridate::epiweek(dates)
 
   # Create epirange from min to max
   epidatr::epirange(min(epiweeks), max(epiweeks))
