@@ -154,11 +154,11 @@ fetch_reporting_data_epidatr <- function(
   # Format for baselinenowcast
   results <- results |>
     dplyr::select(
-      reference_date = time_value,
-      report_date = issue,
-      count = value,
-      location = geo_value,
-      signal
+      reference_date = "time_value",
+      report_date = "issue",
+      count = "value",
+      location = "geo_value",
+      "signal"
     ) |>
     dplyr::mutate(
       # epidatr returns week start dates; convert to week-ending Saturdays
