@@ -1,8 +1,10 @@
 Package: nowcastNHSN
 Title: Nowcasting Tools for NHSN Data
 Version: 0.0.0.9000
-Authors@R:
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Authors@R: c(
+    person("Sam", "Brand", email = "usi1@cdc.gov", role = c("aut", "cre")),
+    person("Dylan", "Morris", email = "dzl1@cdc.gov", role = "ctb")
+)
 Description: Provides utilities for nowcasting and working with National
     Healthcare Safety Network (NHSN) data, including date conversion
     utilities for epidemiological week formats.
