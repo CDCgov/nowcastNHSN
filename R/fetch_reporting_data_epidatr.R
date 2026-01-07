@@ -66,6 +66,10 @@ validate_nhsn_params <- function(signal, geo_type) {
 #'   or `"*"` for all available dates. Default is `"*"`.
 #' @param issues A timeset object for specific issue dates, or `"*"` for most
 #'   recent. Default is `"*"`.
+#' @param fetch_args List of fetch arguments passed to `epidatr::pub_covidcast()`.
+#'   Defaults to `fetch_args_list(reference_week_day = 7)` to return Saturday
+#'   dates matching MMWR epiweek and forecast hub conventions.
+#' @param ... Additional arguments passed to `epidatr::pub_covidcast()`.
 #' @return A tibble with columns including:
 #'   - `geo_value`: Geographic identifier
 #'   - `time_value`: Reference date (week-ending Saturday)
@@ -81,7 +85,9 @@ fetch_nhsn_data <- function(
   geo_type = "state",
   geo_values = "*",
   time_values = "*",
-  issues = "*"
+  issues = "*",
+  fetch_args = epidatr::fetch_args_list(reference_week_day = 7),
+  ...
 ) {
   # Input validation
   validate_nhsn_params(signal, geo_type)
@@ -95,6 +101,8 @@ fetch_nhsn_data <- function(
     time_values = time_values,
     geo_values = geo_values,
     issues = issues,
+    fetch_args = fetch_args,
+    ...
   )
 
   # Output validation
@@ -110,8 +118,8 @@ fetch_nhsn_data <- function(
 #' @description
 #' Wrapper around [fetch_nhsn_data()] that reshapes and converts the output
 #' to a long format suitable for reporting triangle construction.
-#' Output dates are Saturday week-endings, matching both MMWR epiweeks and
-#' forecast hub conventions.
+#' Uses `reference_week_day = 7` by default to return Saturday week-ending
+#' dates, matching both MMWR epiweek and forecast hub conventions.
 #'
 #' @param signal Character string specifying the NHSN signal to fetch.
 #'   Default is `"confirmed_admissions_covid_ew_prelim"`.
@@ -128,6 +136,9 @@ fetch_nhsn_data <- function(
 #' @param report_dates A timeset object for specific report dates, or `"*"`
 #'   for most all. Default is `"*"`.
 #'
+#' @param ... Additional arguments passed to `epidatr::pub_covidcast()` via
+#'   [fetch_nhsn_data()], such as `fetch_args` for controlling caching behavior.
+#'
 #' @return A data frame in long format suitable for reporting triangle construction
 #'   with columns:
 #'   - `reference_date`: Date of the event (week-ending Saturday)
@@ -142,14 +153,16 @@ fetch_reporting_data_epidatr <- function(
   geo_type = "state",
   geo_values = "*",
   reference_dates = "*",
-  report_dates = "*"
+  report_dates = "*",
+  ...
 ) {
   results <- fetch_nhsn_data(
     signal = signal,
     geo_type = geo_type,
     geo_values = geo_values,
     time_values = reference_dates,
-    issues = report_dates
+    issues = report_dates,
+    ...
   )
   # Format for baselinenowcast
   results <- results |>
@@ -159,14 +172,6 @@ fetch_reporting_data_epidatr <- function(
       count = "value",
       location = "geo_value",
       "signal"
-    ) |>
-    dplyr::mutate(
-      # epidatr returns epiweek start dates; convert to week-ending Saturdays
-      # using forecasttools to match forecast hub and MMWR epiweek conventions
-      reference_date = forecasttools::ceiling_mmwr_epiweek(
-        .data$reference_date
-      ),
-      report_date = forecasttools::ceiling_mmwr_epiweek(.data$report_date)
     ) |>
     dplyr::arrange(.data$reference_date, .data$report_date)
 

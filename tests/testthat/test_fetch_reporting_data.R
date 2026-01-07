@@ -6,7 +6,12 @@ reference_dates <- seq(
 )
 loc <- "ca"
 
+# Note: httptest2 mocking doesn't work with epidatr's HTTP client implementation.
+# Even with refresh_cache = TRUE passed via ..., requests aren't intercepted.
+# Using skip_if_offline() as the recommended approach for network-dependent tests.
 test_that("fetch_reporting_data works with epidatr_source", {
+  skip_if_offline()
+
   # Create epidatr source
   src <- delphi_epidata_source(
     target = "covid",

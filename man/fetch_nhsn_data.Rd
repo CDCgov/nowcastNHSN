@@ -9,7 +9,9 @@ fetch_nhsn_data(
   geo_type = "state",
   geo_values = "*",
   time_values = "*",
-  issues = "*"
+  issues = "*",
+  fetch_args = epidatr::fetch_args_list(reference_week_day = 7),
+  ...
 )
 }
 \arguments{
@@ -27,6 +29,12 @@ or \code{"*"} for all available dates. Default is \code{"*"}.}
 
 \item{issues}{A timeset object for specific issue dates, or \code{"*"} for most
 recent. Default is \code{"*"}.}
+
+\item{fetch_args}{List of fetch arguments passed to \code{epidatr::pub_covidcast()}.
+Defaults to \code{fetch_args_list(reference_week_day = 7)} to return Saturday
+dates matching MMWR epiweek and forecast hub conventions.}
+
+\item{...}{Additional arguments passed to \code{epidatr::pub_covidcast()}.}
 }
 \value{
 A tibble with columns including:

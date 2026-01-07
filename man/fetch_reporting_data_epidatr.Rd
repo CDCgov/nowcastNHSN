@@ -9,7 +9,8 @@ fetch_reporting_data_epidatr(
   geo_type = "state",
   geo_values = "*",
   reference_dates = "*",
-  report_dates = "*"
+  report_dates = "*",
+  ...
 )
 }
 \arguments{
@@ -27,6 +28,9 @@ or \code{"*"} for all available dates. Default is \code{"*"}.}
 
 \item{report_dates}{A timeset object for specific report dates, or \code{"*"}
 for most all. Default is \code{"*"}.}
+
+\item{...}{Additional arguments passed to \code{epidatr::pub_covidcast()} via
+\code{\link[=fetch_nhsn_data]{fetch_nhsn_data()}}, such as \code{fetch_args} for controlling caching behavior.}
 }
 \value{
 A data frame in long format suitable for reporting triangle construction
@@ -43,6 +47,6 @@ week-ending Saturday \emph{after} the epiweek when data was published.
 \description{
 Wrapper around \code{\link[=fetch_nhsn_data]{fetch_nhsn_data()}} that reshapes and converts the output
 to a long format suitable for reporting triangle construction.
-Output dates are Saturday week-endings, matching both MMWR epiweeks and
-forecast hub conventions.
+Uses \code{reference_week_day = 7} by default to return Saturday week-ending
+dates, matching both MMWR epiweek and forecast hub conventions.
 }
