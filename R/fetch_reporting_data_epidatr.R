@@ -161,12 +161,14 @@ fetch_reporting_data_epidatr <- function(
       "signal"
     ) |>
     dplyr::mutate(
-      # epidatr returns week start dates; convert to week-ending Saturdays
-      # to match forecast hub and MMWR epiweek conventions
-      reference_date = reference_date + 6,
-      report_date = report_date + 6
+      # epidatr returns epiweek start dates; convert to week-ending Saturdays
+      # using forecasttools to match forecast hub and MMWR epiweek conventions
+      reference_date = forecasttools::ceiling_mmwr_epiweek(
+        .data$reference_date
+      ),
+      report_date = forecasttools::ceiling_mmwr_epiweek(.data$report_date)
     ) |>
-    dplyr::arrange(reference_date, report_date)
+    dplyr::arrange(.data$reference_date, .data$report_date)
 
   results
 }
