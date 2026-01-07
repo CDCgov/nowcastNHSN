@@ -36,7 +36,7 @@ epidata_source <- function(
   geo_types = c("state", "nation")
 ) {
   # Validate and match target
-  target <- match.arg(target)
+  target <- rlang::arg_match(target)
 
   # Convert target to full signal name
   signal <- sprintf("confirmed_admissions_%s_ew_prelim", target)
