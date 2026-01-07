@@ -2,7 +2,7 @@
 #'
 #' @description
 #' Internal helper function to validate that all provided dates fall on
-#' Saturday.
+#' Saturday as per the using the MMWR epiweek week-ending convention.
 #' @noRd
 validate_all_saturdays <- function(dates) {
   dates <- as.Date(dates)
@@ -37,9 +37,6 @@ validate_all_saturdays <- function(dates) {
 #' 2. Converts to MMWR epiweek format (YYYYWW) using lubridate
 #' 3. Returns an `epidatr::epirange` spanning from the earliest to latest week
 #'
-#' **Why Saturday dates work directly?**
-#' - Both forecast hub and MMWR/CDC epiweeks end on Saturday
-#' - epidatr API requires epiweek format (YYYYWW)
 #' @export
 saturdays_to_epirange <- function(dates) {
   dates <- as.Date(dates)

@@ -141,9 +141,8 @@ fetch_nhsn_data <- function(
 #'
 #' @return A data frame in long format suitable for reporting triangle construction
 #'   with columns:
-#'   - `reference_date`: Date of the event (week-ending Saturday)
-#'   - `report_date`: Date when data was reported. This is the
-#' week-ending Saturday _after_ the epiweek when data was published.
+#'   - `reference_date`: Date of the event (epiweek-ending Saturday)
+#'   - `report_date`: Date when data was reported (epiweek-ending Saturday)
 #'   - `count`: Number of confirmed admissions
 #'   - `location`: Geographic identifier
 #'   - `signal`: Signal name
