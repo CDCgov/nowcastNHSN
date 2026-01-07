@@ -4,7 +4,7 @@ output:
   rmarkdown::html_vignette:
     code_folding: show
 vignette: >
-  %\VignetteIndexEntry{Getting Started with nowcastNHSN}
+  %\VignetteIndexEntry{Getting Started with `nowcastNHSN`}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
