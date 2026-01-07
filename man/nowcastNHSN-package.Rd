@@ -9,7 +9,12 @@
 Provides utilities for nowcasting and working with National Healthcare Safety Network (NHSN) data, including date conversion utilities for epidemiological week formats.
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com}
+\strong{Maintainer}: Sam Brand \email{usi1@cdc.gov}
+
+Other contributors:
+\itemize{
+  \item Dylan Morris \email{dzl1@cdc.gov} [contributor]
+}
 
 }
 \keyword{internal}

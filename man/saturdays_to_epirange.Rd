@@ -24,7 +24,7 @@ The function:
 \enumerate{
 \item Validates that all dates are Saturdays
 \item Adds one day to convert to Sunday (epiweeks end on Sunday)
-\item Converts to MMWR epiweek format (YYYYWW)
+\item Converts to MMWR epiweek format (YYYYWW) using forecasttools
 \item Returns an \code{epidatr::epirange} spanning from the earliest to latest week
 }
 
