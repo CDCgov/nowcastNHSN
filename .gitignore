@@ -384,3 +384,4 @@ docs/site/
 .vscode/
 .DS_Store
 .github/copilot-instructions.md
+inst/doc
