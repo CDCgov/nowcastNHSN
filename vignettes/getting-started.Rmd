@@ -43,8 +43,8 @@ The primary function for fetching reporting data is `fetch_reporting_data()`, wh
 In this vignette, we'll focus on the `EpiData` source, which provides historical versions of NHSN hospital admission data maintained by the Delphi group at Carnegie Mellon University.
 
 ```{r create-source}
-# Create an epidata source for COVID-19 hospital admissions
-source <- epidata_source(
+# Create a Delphi Epidata source for COVID-19 hospital admissions
+source <- delphi_epidata_source(
   target = "covid",
   geo_types = "state"
 )

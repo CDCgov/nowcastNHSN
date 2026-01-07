@@ -29,9 +29,9 @@ to_epirange <- function(x) {
 #' @param target Character, disease target: "covid", "flu", or "rsv"
 #' @param geo_types Character vector, geographic types to query (e.g., "state",
 #' "nation")
-#' @return A source object of class "epidata_source"
+#' @return A source object of class "delphi_epidata_source"
 #' @export
-epidata_source <- function(
+delphi_epidata_source <- function(
   target = c("covid", "flu", "rsv"),
   geo_types = c("state", "nation")
 ) {
@@ -46,7 +46,7 @@ epidata_source <- function(
       signal = signal,
       geo_types = geo_types
     ),
-    class = c("epidata_source", "reporting_source")
+    class = c("delphi_epidata_source", "reporting_source")
   )
 }
 
@@ -54,7 +54,7 @@ epidata_source <- function(
 #'
 #' Generic function to fetch reporting triangle data using S3 method dispatch.
 #'
-#' @param source A source object created by [epidata_source()]
+#' @param source A source object created by [delphi_epidata_source()]
 #' @param reference_dates Date vector or epirange of reference dates
 #' @param report_dates Date vector or epirange of report dates
 #' @param locations Character vector of locations
@@ -71,16 +71,16 @@ fetch_reporting_data <- function(
   UseMethod("fetch_reporting_data")
 }
 
-#' Fetch reporting data from epidata
+#' Fetch reporting data from Delphi Epidata
 #'
-#' @param source An epidata_source object
+#' @param source A delphi_epidata_source object
 #' @param reference_dates Date vector or epirange of reference dates
 #' @param report_dates Date vector or epirange of report dates
 #' @param locations Character vector of locations ("*" for all)
 #' @param ... Additional arguments (unused)
 #' @return data.frame with reporting triangle data
 #' @export
-fetch_reporting_data.epidata_source <- function(
+fetch_reporting_data.delphi_epidata_source <- function(
   source,
   reference_dates,
   report_dates,

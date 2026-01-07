@@ -1,7 +1,7 @@
-test_that("epidata_source creates correct class", {
-  src <- epidata_source(target = "covid")
+test_that("delphi_epidata_source creates correct class", {
+  src <- delphi_epidata_source(target = "covid")
 
-  expect_s3_class(src, "epidata_source")
+  expect_s3_class(src, "delphi_epidata_source")
   expect_s3_class(src, "reporting_source")
   expect_equal(src$signal, "confirmed_admissions_covid_ew_prelim")
 })

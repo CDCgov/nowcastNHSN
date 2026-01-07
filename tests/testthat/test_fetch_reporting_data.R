@@ -8,7 +8,7 @@ loc <- "ca"
 
 test_that("fetch_reporting_data works with epidatr_source", {
   # Create epidatr source
-  src <- epidata_source(
+  src <- delphi_epidata_source(
     target = "covid",
     geo_types = "state"
   )
