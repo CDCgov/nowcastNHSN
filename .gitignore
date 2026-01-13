@@ -383,3 +383,5 @@ docs/site/
 # vscode settings folder
 .vscode/
 .DS_Store
+.github/copilot-instructions.md
+inst/doc
