@@ -24,10 +24,4 @@ The function:
 \item Converts to MMWR epiweek format (YYYYWW) using lubridate
 \item Returns an \code{epidatr::epirange} spanning from the earliest to latest week
 }
-
-\strong{Why Saturday dates work directly?}
-\itemize{
-\item Both forecast hub and MMWR/CDC epiweeks end on Saturday
-\item epidatr API requires epiweek format (YYYYWW)
-}
 }

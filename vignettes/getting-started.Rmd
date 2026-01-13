@@ -27,8 +27,8 @@ library(dplyr)
 ## Introduction
 
 The `nowcastNHSN` package provides tools for fetching and doing inference with vintages of National Healthcare Safety Network (NHSN) hospitalisation incidence data for Covid-19, Influenza and RSV.
-The goal of `nowcastNHSN` is to help with forecasting these signals in real-time, as new target data arrives in forecast hubs on a mid-week (Wednesday) schedule, by offering easy access to historical reporting data and nowcasting model outputs.
-This vignette demonstrates how to fetch reporting data and prepare it for nowcasting analysis using the `baselinenowcast::as_reporting_triangle` package.
+The goal of `nowcastNHSN` is to help with forecasting these signals in real-time, as new target data arrives in forecast hubs on a mid-week (Wednesday) schedule, by offering easy access to various methods of gathering historical reporting data and various approaches to nowcasting NHSN data.
+This vignette demonstrates how to fetch NHSN reporting data and prepare it for nowcasting analysis using the `baselinenowcast` package.
 
 **Forecasting hubs:**
 
@@ -98,7 +98,7 @@ For visualization of how vintages evolve over time, we'll also compute cumulativ
 
 ### Visualizing Reporting Delays
 
-A key feature of reporting data is that counts for the same reference date can change as new reports come in.
+A feature of reporting data is that counts for the same reference date can change as new reports come in.
 This backfilling of the data is a common challenge in using the latest data for real-time forecasting.
 To visualize this, we first compute cumulative totals from the incremental counts, then plot the time series of Californian Covid-19 hospitalisations at different report dates:
 
@@ -156,17 +156,9 @@ Note that the reporting triangle is created for a single location at a time:
 ca_data <- reporting_data |>
   filter(location == "ca")
 
-# For nowcasting, we need to simulate a point in time where recent data
-# hasn't arrived yet. Filter to reports available as of a specific date.
-nowcast_date <- max(ca_data$reference_date) - 14  # Pretend we're 2 weeks ago
+nowcast_date <- max(ca_data$reference_date)
 ca_data <- ca_data |>
   filter(report_date <= nowcast_date)
-
-# Check data range
-cat("Reference date range:", format(range(ca_data$reference_date)), "\n")
-cat("Report date range:", format(range(ca_data$report_date)), "\n")
-cat("Nowcast date:", format(nowcast_date), "\n")
-cat("Number of rows:", nrow(ca_data), "\n")
 
 # Convert to reporting triangle format
 reporting_triangle <- as_reporting_triangle(
@@ -215,7 +207,7 @@ In this heatmap, the diagonal represents the most recent data available at each 
 
 ## Using `baselinenowcast` for Nowcasting
 
-The `baselinenowcast` package provides a simple baseline model for nowcasting reporting triangles.
+The `baselinenowcast` package provides a simple baseline model for nowcasting reporting triangles; [see here for details](https://baselinenowcast.epinowcast.org/articles/model_definition.html).
 Now that we have our reporting triangle, we can use it to generate nowcasts that estimate the final count for recent reference dates that are likely still under-reported.
 
 ### Fitting the Baseline Nowcast Model
@@ -319,20 +311,133 @@ ggplot(comparison, aes(x = reference_date, y = reporting_completeness)) +
 This completeness plot shows that recent reference dates typically have lower reporting completeness, as expected.
 For forecasting applications, the nowcast estimates can be used to adjust for this expected under-reporting when generating predictions.
 
-## Next Steps
+## Custom Uncertainty Models
 
-This vignette has demonstrated the basic workflow for:
+The `baselinenowcast` package makes point estimates for the predicted eventual reports on data references dates.
+For uncertainty quantification, `baselinenowcast` also makes dispersion estimates from retrospective data using the point estimates as fixed means.
+This also allows us to sample reference date/lag realisations from the nowcast model using a parametric distribution, which by default is a negative binomial.
+However, `nowcastNHSN` provides alternative uncertainty models that may be more appropriate for different data characteristics.
+In particular, sometimes we see down revisions to NHSN data which has probability zero under a negative binomial model.
+`nowcastNHSN` provides dispersion fits and sampling for two distributions that can sample negative integer values: the rounded normal and the Skellam distributions.
 
-1. Fetching NHSN reporting data using `fetch_reporting_data()`
-2. Converting it to a reporting triangle with `baselinenowcast::as_reporting_triangle()`
-3. Generating nowcasts with `baselinenowcast::baselinenowcast()`
-4. Visualizing and interpreting the results
+### Using Normal Distribution for Uncertainty
 
-For more advanced usage, including:
+The normal distribution (rounded to integers) provides a simple symmetric uncertainty model.
+We use `fit_by_horizon()` from baselinenowcast with our custom `fit_normal` function:
+```{r nowcast-normal, message = FALSE}
+# Nowcast using normal distribution for uncertainty
+nowcast_normal <- baselinenowcast(
+  reporting_triangle,
+  draws = 100,
+  uncertainty_model = function(obs, pred) {
+    fit_by_horizon(obs, pred, fit_model = fit_normal)
+  },
+  uncertainty_sampler = sample_normal
+)
 
-- Customizing the nowcast model parameters
-- Using different delay distributions
-- Incorporating multiple locations
-- Integrating nowcasts into forecast workflows
+# Summarize the normal nowcast
+normal_summary <- nowcast_normal |>
+  group_by(reference_date) |>
+  summarise(
+    median = median(pred_count),
+    q5 = quantile(pred_count, 0.05),
+    q95 = quantile(pred_count, 0.95),
+    .groups = "drop"
+  ) |>
+  mutate(model = "Normal")
 
-Please refer to the [baselinenowcast package documentation](https://github.com/epinowcast/baselinenowcast).
+print(normal_summary)
+```
+
+### Using Skellam Distribution for Uncertainty
+
+The Skellam distribution is the difference of two Poisson random variables, making it naturally suited for count data.
+It produces integer samples directly and can handle cases where deviations might be negative:
+
+```{r nowcast-skellam, message = FALSE}
+# Nowcast using Skellam distribution for uncertainty
+nowcast_skellam <- baselinenowcast(
+  reporting_triangle,
+  draws = 100,
+  uncertainty_model = function(obs, pred) {
+    fit_by_horizon(obs, pred, fit_model = fit_skellam)
+  },
+  uncertainty_sampler = sample_skellam
+)
+
+# Summarize the Skellam nowcast
+skellam_summary <- nowcast_skellam |>
+  group_by(reference_date) |>
+  summarise(
+    median = median(pred_count),
+    q5 = quantile(pred_count, 0.05),
+    q95 = quantile(pred_count, 0.95),
+    .groups = "drop"
+  ) |>
+  mutate(model = "Skellam")
+
+print(skellam_summary)
+```
+
+### Comparing Uncertainty Models
+
+Let's visualize how the different uncertainty models compare:
+
+```{r plot-uncertainty-comparison, fig.width = 8, fig.height = 5, class.source = 'fold-hide'}
+# Combine summaries
+all_summaries <- rbind(
+  normal_summary,
+  skellam_summary
+)
+
+ggplot(all_summaries, aes(x = reference_date)) +
+  # Latest reported counts
+  geom_point(
+    data = comparison,
+    aes(y = latest_count, color = "Latest Reported"),
+    size = 3
+  ) +
+  geom_line(
+    data = comparison,
+    aes(y = latest_count, color = "Latest Reported"),
+    linewidth = 1
+  ) +
+  # Nowcast uncertainty ribbons
+  geom_ribbon(
+    data = normal_summary,
+    aes(ymin = q5, ymax = q95, fill = "Normal"),
+    alpha = 0.3
+  ) +
+  geom_ribbon(
+    data = skellam_summary,
+    aes(ymin = q5, ymax = q95, fill = "Skellam"),
+    alpha = 0.3
+  ) +
+  # Nowcast medians (use normal_summary since medians are the same)
+  geom_point(
+    data = normal_summary,
+    aes(y = median, color = "Nowcast (Median)"),
+    size = 3, shape = 17
+  ) +
+  geom_line(
+    data = normal_summary,
+    aes(y = median, color = "Nowcast (Median)"),
+    linewidth = 1, linetype = "dashed"
+  ) +
+  labs(
+    title = "Comparison of Uncertainty Models",
+    subtitle = "Comparing Normal vs Skellam prediction intervals",
+    x = "Reference Date (Week Ending)",
+    y = "Confirmed Admissions",
+    color = "Count Type",
+    fill = "90% Prediction Interval"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("Latest Reported" = "#E41A1C", "Nowcast (Median)" = "#377EB8")) +
+  scale_fill_manual(values = c("Normal" = "#377EB8", "Skellam" = "#4DAF4A"))
+```
+
+Note that both custom sampling distributions are capable of sampling down-revisions, albeit with different dispersion.
+The Skellam distribution is constrained to have higher variance than mean so is probably a better model for situations with low counts and fairly common down-revisions.
+The normal distribution (rounded) probably works better for larger counts with rare down-revisions.
