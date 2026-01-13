@@ -14,6 +14,7 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+devtools::load_all()
 ```
 
 ```{r setup}
@@ -56,16 +57,14 @@ In `nowcastNHSN`, we follow the forecast hub convention of using Saturdays as th
 We'll define the time period and locations we want to fetch data for:
 
 ```{r define-parameters}
-# Define reference dates (Saturdays - forecast hub convention)
-reference_dates <- seq(
-  as.Date("2025-10-25"),
-  as.Date("2025-12-27"),
-  by = "week"
-)
+# Define reference dates as an epirange (YYYYWW format)
+epiweeks <- epidatr::epirange(202450, 202520)
+
+reference_dates <- epiweeks
 
 # For report dates, use "*" to get all available issue dates
 # This will retrieve the full reporting history
-report_dates <- "*"
+report_dates <- epidatr::epirange(202450, 202525)
 
 # Fetch data for specific states (lowercase for epidata API)
 locations <- c("ca", "ny")
@@ -78,10 +77,9 @@ Now we can fetch the reporting data and filter out any report dates that are too
 reporting_data <- fetch_reporting_data(
   source = source,
   reference_dates = reference_dates,
-  report_dates = report_dates,
+  report_dates = "*",
   locations = locations
-) |>
-  filter(report_date <= max(reference_date) + 14)
+)
 ```
 
 ```{r save-data, echo = FALSE, eval = !isTRUE(as.logical(Sys.getenv("CI")))}
@@ -104,31 +102,50 @@ The returned data frame contains columns:
 - `reference_date`: The Saturday ending the week when events occurred
 - `report_date`: The Saturday when the data was reported
 - `location`: Geographic identifier (state abbreviation or "US")
-- `count`: Number of confirmed COVID-19 hospital admissions
+- `count`: Number of **new** COVID-19 hospital admissions reported on that report date (incremental, not cumulative)
 - `signal`: The epidata signal name
+
+Note that `fetch_reporting_data()` automatically converts the cumulative counts from the API to incremental counts, which is the format expected by `baselinenowcast::as_reporting_triangle()`.
+For visualization of how vintages evolve over time, we'll also compute cumulative totals:
 
 ### Visualizing Reporting Delays
 
 A key feature of reporting data is that counts for the same reference date can change as new reports come in.
 This backfilling of the data is a common challenge in using the latest data for real-time forecasting.
-We can visualize this by plotting the time series of Californian Covid-19 hospitalisations at different report dates:
+To visualize this, we first compute cumulative totals from the incremental counts, then plot the time series of Californian Covid-19 hospitalisations at different report dates:
 
 ```{r plot-delays, fig.width = 7, fig.height = 5, class.source = 'fold-hide'}
+# Compute cumulative totals for visualization of vintages
+# (sum of incremental counts up to each report date)
+reporting_data_cumulative <- reporting_data |>
+  arrange(location, reference_date, report_date) |>
+  group_by(location, reference_date) |>
+  mutate(cumulative_count = cumsum(count)) |>
+  ungroup()
+
 # Select a few report dates to compare
-selected_reports <- reporting_data %>%
+# Pick 5 evenly spaced report dates to show evolution over time
+all_report_dates <- sort(unique(reporting_data_cumulative$report_date[reporting_data_cumulative$location == "ca"]))
+selected_report_dates <- all_report_dates[
+  seq(1, length(all_report_dates), length.out = 5) |> round()
+]
+
+selected_reports <- reporting_data_cumulative |>
   filter(
-    location == "ca",  # Focus on California
+    location == "ca",
+    report_date %in% selected_report_dates
   )
 
 # Create the plot
-ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(report_date))) +
+ggplot(selected_reports, aes(x = reference_date, y = cumulative_count, color = as.factor(report_date))) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
+  scale_y_log10() +
   labs(
     title = "COVID-19 Hospital Admissions in California",
-    subtitle = "How reported counts change as data is updated",
+    subtitle = "How reported counts change as data is updated (cumulative totals)",
     x = "Reference Date (Week Ending)",
-    y = "Confirmed Admissions",
+    y = "Confirmed Admissions (log scale)",
     color = "Report Date"
   ) +
   theme_minimal() +
@@ -148,14 +165,27 @@ Note that the reporting triangle is created for a single location at a time:
 
 ```{r create-triangle, message = FALSE}
 # Filter to a single location (California) for the reporting triangle
-ca_data <- reporting_data %>%
+ca_data <- reporting_data |>
   filter(location == "ca")
+
+# For nowcasting, we need to simulate a point in time where recent data
+# hasn't arrived yet. Filter to reports available as of a specific date.
+nowcast_date <- max(ca_data$reference_date) - 14  # Pretend we're 2 weeks ago
+ca_data <- ca_data |>
+  filter(report_date <= nowcast_date)
+
+# Check data range
+cat("Reference date range:", format(range(ca_data$reference_date)), "\n")
+cat("Report date range:", format(range(ca_data$report_date)), "\n")
+cat("Nowcast date:", format(nowcast_date), "\n")
+cat("Number of rows:", nrow(ca_data), "\n")
 
 # Convert to reporting triangle format
 reporting_triangle <- as_reporting_triangle(
   ca_data,
-  delays_unit = "weeks",
-)
+  delays_unit = "weeks"
+) |>
+  truncate_to_delay(max_delay = 15)
 
 # View the reporting triangle structure
 print(reporting_triangle)
@@ -169,8 +199,8 @@ A heatmap provides another useful way to visualize the reporting triangle struct
 
 ```{r plot-heatmap, fig.width = 8, fig.height = 6, class.source = 'fold-hide'}
 # Extract data from reporting triangle for visualization
-rt_data <- reporting_triangle %>%
-  as.data.frame() %>%
+rt_data <- reporting_triangle |>
+  as.data.frame() |>
   mutate(
     # Convert delay back to report_date for the heatmap
     report_date = reference_date + delay * 7  # delay is in weeks
@@ -197,4 +227,124 @@ In this heatmap, the diagonal represents the most recent data available at each 
 
 ## Using `baselinenowcast` for Nowcasting
 
-_To be implemented in future versions of this vignette._
+The `baselinenowcast` package provides a simple baseline model for nowcasting reporting triangles.
+Now that we have our reporting triangle, we can use it to generate nowcasts that estimate the final count for recent reference dates that are likely still under-reported.
+
+### Fitting the Baseline Nowcast Model
+
+The baseline nowcast model fits a simple delay distribution to the reporting triangle and uses it to predict the expected final count.
+We can fit the model and generate predictions as follows:
+
+```{r fit-nowcast, message = FALSE}
+# Fit the baseline nowcast model
+nowcast_fit <- baselinenowcast(reporting_triangle, draws = 100)
+
+```
+
+### Extracting Nowcast Predictions
+
+The nowcast object contains predictions for each reference date.
+We can extract these predictions and compare them to the latest reported counts:
+
+```{r extract-predictions, message = FALSE}
+# Extract the nowcast predictions by summarizing the draws
+nowcast_predictions <- nowcast_fit |>
+  group_by(reference_date) |>
+  summarise(
+    median = median(pred_count),
+    q5 = quantile(pred_count, 0.05),
+    q95 = quantile(pred_count, 0.95),
+    .groups = "drop"
+  )
+
+# The nowcast predicts the FINAL CUMULATIVE count for each reference date.
+# We need to compute cumulative totals from the incremental data for comparison.
+latest_cumulative <- ca_data |>
+  arrange(reference_date, report_date) |>
+  group_by(reference_date) |>
+  summarise(
+    # Sum all incremental counts to get cumulative total as of latest report
+    latest_count = sum(count),
+    .groups = "drop"
+  )
+
+comparison <- nowcast_predictions |>
+  left_join(latest_cumulative, by = "reference_date") |>
+  mutate(
+    reporting_completeness = latest_count / median * 100
+  )
+
+# View the comparison
+print(comparison |> select(reference_date, latest_count, median, q5, q95, reporting_completeness))
+```
+
+### Visualizing Nowcast Results
+
+We can visualize the nowcast results by plotting the predicted final counts alongside the latest reported counts:
+
+```{r plot-nowcast, fig.width = 8, fig.height = 5, class.source = 'fold-hide'}
+ggplot(comparison, aes(x = reference_date)) +
+  # Latest reported counts
+  geom_point(aes(y = latest_count, color = "Latest Reported"), size = 3) +
+  geom_line(aes(y = latest_count, color = "Latest Reported"), linewidth = 1) +
+  # Nowcast median
+  geom_point(aes(y = median, color = "Nowcast (Median)"), size = 3, shape = 17) +
+  geom_line(aes(y = median, color = "Nowcast (Median)"), linewidth = 1, linetype = "dashed") +
+  # Nowcast uncertainty
+  geom_ribbon(aes(ymin = q5, ymax = q95, fill = "90% Prediction Interval"), alpha = 0.3) +
+  labs(
+    title = "Baseline Nowcast for California COVID-19 Admissions",
+    subtitle = "Comparing latest reported counts with nowcast predictions",
+    x = "Reference Date (Week Ending)",
+    y = "Confirmed Admissions",
+    color = "Count Type",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("Latest Reported" = "#E41A1C", "Nowcast (Median)" = "#377EB8")) +
+  scale_fill_manual(values = c("90% Prediction Interval" = "#377EB8"))
+```
+
+This plot shows that for recent reference dates, the nowcast predictions (dashed line with triangles) are higher than the latest reported counts (solid line with circles), indicating expected under-reporting.
+The shaded area represents the 90% prediction interval, showing the uncertainty in the nowcast.
+
+### Understanding Reporting Completeness
+
+We can also visualize the estimated reporting completeness over time to identify which reference dates are most affected by reporting delays:
+
+```{r plot-completeness, fig.width = 8, fig.height = 5, class.source = 'fold-hide'}
+ggplot(comparison, aes(x = reference_date, y = reporting_completeness)) +
+  geom_line(linewidth = 1, color = "#4DAF4A") +
+  geom_point(size = 3, color = "#4DAF4A") +
+  geom_hline(yintercept = 100, linetype = "dashed", color = "grey50") +
+  labs(
+    title = "Estimated Reporting Completeness Over Time",
+    subtitle = "Percentage of final count already reported (latest count / nowcast median)",
+    x = "Reference Date (Week Ending)",
+    y = "Reporting Completeness (%)"
+  ) +
+  scale_y_continuous(limits = c(0, 110), breaks = seq(0, 100, 20)) +
+  theme_minimal()
+```
+
+This completeness plot shows that recent reference dates typically have lower reporting completeness, as expected.
+For forecasting applications, the nowcast estimates can be used to adjust for this expected under-reporting when generating predictions.
+
+## Next Steps
+
+This vignette has demonstrated the basic workflow for:
+
+1. Fetching NHSN reporting data using `fetch_reporting_data()`
+2. Converting it to a reporting triangle with `baselinenowcast::as_reporting_triangle()`
+3. Generating nowcasts with `baselinenowcast::baselinenowcast()`
+4. Visualizing and interpreting the results
+
+For more advanced usage, including:
+
+- Customizing the nowcast model parameters
+- Using different delay distributions
+- Incorporating multiple locations
+- Integrating nowcasts into forecast workflows
+
+Please refer to the [baselinenowcast package documentation](https://github.com/epinowcast/baselinenowcast).
