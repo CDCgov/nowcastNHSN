@@ -1,5 +1,12 @@
 # `nowcastNHSN`
 
+<!-- badges: start -->
+[![pkgdown](https://github.com/CDCgov/nowcastNHSN/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/CDCgov/nowcastNHSN/actions/workflows/pkgdown.yaml)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+<!-- badges: end -->
+
+> **Documentation**: <https://cdcgov.github.io/nowcastNHSN/>
+
 ## Overview
 
 This repository has three main purposes:
