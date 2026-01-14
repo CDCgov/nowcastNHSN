@@ -30,4 +30,5 @@ samples
 Other sample_distribution:
 \code{\link{sample_skellam}()}
 }
+\concept{probabilistic_methods}
 \concept{sample_distribution}

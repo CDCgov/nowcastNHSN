@@ -110,6 +110,7 @@ saturdays_to_epirange <- function(dates) {
 #' This assumes that the first report date for each reference date represents
 #' the initial count (i.e., there was 0 before it).
 #'
+#' @concept data_processing
 #' @export
 #' @examples
 #' # Example with cumulative data

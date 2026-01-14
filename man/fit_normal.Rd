@@ -30,3 +30,4 @@ Other estimate_observation_error:
 \code{\link{fit_skellam}()}
 }
 \concept{estimate_observation_error}
+\concept{probabilistic_methods}

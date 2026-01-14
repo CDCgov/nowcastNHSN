@@ -50,3 +50,4 @@ Other estimate_observation_error:
 \code{\link{fit_normal}()}
 }
 \concept{estimate_observation_error}
+\concept{probabilistic_methods}

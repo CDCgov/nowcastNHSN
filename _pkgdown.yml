@@ -42,8 +42,12 @@ reference:
 - title: Probabilistic Methods
   desc: Fitting and sampling methods for uncertainty quantification
   contents:
-  - has_family("estimate_observation_error")
-  - has_family("sample_distribution")
+  - has_concept("probabilistic_methods")
+
+- title: Data Processing
+  desc: Data transformation utilities
+  contents:
+  - has_concept("data_processing")
 
 authors:
   Sam Brand:

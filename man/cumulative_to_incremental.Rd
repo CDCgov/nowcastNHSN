@@ -49,3 +49,4 @@ cumulative_data <- data.frame(
 incremental_data <- cumulative_to_incremental(cumulative_data)
 # count is now: 100, 20, 5 (the differences)
 }
+\concept{data_processing}

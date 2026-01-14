@@ -9,6 +9,7 @@
 #' @param mu Vector of expected values (fixed means).
 #' @returns The maximum likelihood estimate of the variance (sigma^2).
 #' @family estimate_observation_error
+#' @concept probabilistic_methods
 #' @export
 #' @examples
 #' obs <- c(4, 8, 10)
@@ -80,6 +81,7 @@ dskellam_log <- function(x, lambda1, lambda2) {
 #' @importFrom stats optimize
 #' @importFrom checkmate assert_integerish
 #' @family estimate_observation_error
+#' @concept probabilistic_methods
 #' @export
 #' @examples
 #' # Differences can be negative

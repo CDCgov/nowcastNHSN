@@ -12,6 +12,7 @@
 #' @importFrom stats rnorm
 #' @importFrom cli cli_abort
 #' @family sample_distribution
+#' @concept probabilistic_methods
 #' @export
 #' @examples
 #' pred <- c(3.2, 4.6, 5.1)
@@ -66,6 +67,7 @@ sample_normal <- function(pred, uncertainty_params) {
 #' @importFrom stats rpois
 #' @importFrom cli cli_abort
 #' @family sample_distribution
+#' @concept probabilistic_methods
 #' @export
 #' @examples
 #' pred <- c(3.2, -1.5, 0.8)
