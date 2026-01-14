@@ -9,18 +9,23 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
-```
 
-```{r setup}
+
+
+``` r
 library(nowcastNHSN)
+#> Error in library(nowcastNHSN): there is no package called 'nowcastNHSN'
 library(baselinenowcast)
 library(ggplot2)
 library(dplyr)
+#>
+#> Attaching package: 'dplyr'
+#> The following objects are masked from 'package:stats':
+#>
+#>     filter, lag
+#> The following objects are masked from 'package:base':
+#>
+#>     intersect, setdiff, setequal, union
 ```
 
 ## Introduction
@@ -42,12 +47,14 @@ This vignette demonstrates how to fetch reporting data and prepare it for nowcas
 The primary function for fetching reporting data is `fetch_reporting_data()`, which dispatches on different data sources.
 In this vignette, we'll focus on the `EpiData` source, which provides historical versions of NHSN hospital admission data maintained by the Delphi group at Carnegie Mellon University.
 
-```{r create-source}
+
+``` r
 # Create a Delphi Epidata source for COVID-19 hospital admissions
 source <- delphi_epidata_source(
   target = "covid",
   geo_types = "state"
 )
+#> Error in delphi_epidata_source(target = "covid", geo_types = "state"): could not find function "delphi_epidata_source"
 ```
 
 ## Fetching Reporting Data
@@ -55,7 +62,8 @@ source <- delphi_epidata_source(
 In `nowcastNHSN`, we follow the forecast hub convention of using Saturdays as the reference date for weekly data.
 We'll define the time period and locations we want to fetch data for:
 
-```{r define-parameters}
+
+``` r
 # Define reference dates (Saturdays - forecast hub convention)
 reference_dates <- seq(
   as.Date("2025-10-25"),
@@ -73,7 +81,8 @@ locations <- c("ca", "ny")
 
 Now we can fetch the reporting data and filter out any report dates that are too far in the future:
 
-```{r fetch-data, message = FALSE, eval = !isTRUE(as.logical(Sys.getenv("CI")))}
+
+``` r
 # Fetch the data (only runs locally, not in CI)
 reporting_data <- fetch_reporting_data(
   source = source,
@@ -82,21 +91,21 @@ reporting_data <- fetch_reporting_data(
   locations = locations
 ) |>
   filter(report_date <= max(reference_date) + 14)
+#> Error in fetch_reporting_data(source = source, reference_dates = reference_dates, : could not find function "fetch_reporting_data"
 ```
 
-```{r save-data, echo = FALSE, eval = !isTRUE(as.logical(Sys.getenv("CI")))}
-# Save for use in CI builds
-saveRDS(reporting_data, "reporting_data_example.rds")
+
+```
+#> Error: object 'reporting_data' not found
 ```
 
-```{r load-cached-data, echo = FALSE, eval = isTRUE(as.logical(Sys.getenv("CI")))}
-# In CI, load pre-saved data
-reporting_data <- readRDS("reporting_data_example.rds")
-```
 
-```{r show-data}
+
+
+``` r
 # View the first few rows
 head(reporting_data)
+#> Error: object 'reporting_data' not found
 ```
 
 The returned data frame contains columns:
@@ -113,12 +122,14 @@ A key feature of reporting data is that counts for the same reference date can c
 This backfilling of the data is a common challenge in using the latest data for real-time forecasting.
 We can visualize this by plotting the time series of Californian Covid-19 hospitalisations at different report dates:
 
-```{r plot-delays, fig.width = 7, fig.height = 5, class.source = 'fold-hide'}
+
+```{.r .fold-hide}
 # Select a few report dates to compare
 selected_reports <- reporting_data %>%
   filter(
     location == "ca",  # Focus on California
   )
+#> Error: object 'reporting_data' not found
 
 # Create the plot
 ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(report_date))) +
@@ -134,6 +145,7 @@ ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(re
   theme_minimal() +
   theme(legend.position = "bottom") +
   scale_color_brewer(palette = "Set1")
+#> Error: object 'selected_reports' not found
 ```
 
 This plot shows how the same reference dates can have different reported counts depending on when the data was reported.
@@ -146,19 +158,23 @@ We can use the `baselinenowcast::as_reporting_triangle()` function to do this.
 The data from `fetch_reporting_data()` is already in the long format required by `baselinenowcast::as_reporting_triangle()`.
 Note that the reporting triangle is created for a single location at a time:
 
-```{r create-triangle, message = FALSE}
+
+``` r
 # Filter to a single location (California) for the reporting triangle
 ca_data <- reporting_data %>%
   filter(location == "ca")
+#> Error: object 'reporting_data' not found
 
 # Convert to reporting triangle format
 reporting_triangle <- as_reporting_triangle(
   ca_data,
   delays_unit = "weeks",
 )
+#> Error: object 'ca_data' not found
 
 # View the reporting triangle structure
 print(reporting_triangle)
+#> Error: object 'reporting_triangle' not found
 ```
 
 The reporting triangle is now ready for nowcasting analysis using the `baselinenowcast` package.
@@ -167,7 +183,8 @@ The reporting triangle is now ready for nowcasting analysis using the `baselinen
 
 A heatmap provides another useful way to visualize the reporting triangle structure, showing how counts evolve across different combinations of reference and report dates:
 
-```{r plot-heatmap, fig.width = 8, fig.height = 6, class.source = 'fold-hide'}
+
+```{.r .fold-hide}
 # Extract data from reporting triangle for visualization
 rt_data <- reporting_triangle %>%
   as.data.frame() %>%
@@ -175,6 +192,7 @@ rt_data <- reporting_triangle %>%
     # Convert delay back to report_date for the heatmap
     report_date = reference_date + delay * 7  # delay is in weeks
   )
+#> Error: object 'reporting_triangle' not found
 
 ggplot(rt_data, aes(x = reference_date, y = report_date, fill = count)) +
   geom_tile(color = "white", linewidth = 0.5) +
@@ -191,6 +209,7 @@ ggplot(rt_data, aes(x = reference_date, y = report_date, fill = count)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.grid = element_blank()
   )
+#> Error: object 'rt_data' not found
 ```
 
 In this heatmap, the diagonal represents the most recent data available at each time point, while values below the diagonal show how historical data has been revised upward through backfill.
