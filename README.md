@@ -8,10 +8,6 @@ This repository has three main purposes:
 2. Implements a generative nowcasting model(s) to estimate the number of hospitalizations that have occurred but not yet been reported to NHSN.
 3. Makes these nowcasts available for use by relevant modelling teams.
 
-## Getting started
-
-TBD
-
 ## Project admins
 
 - Sam Brand <usi1@cdc.gov> (CDC/IOD/ORR/CFA) (CTR)

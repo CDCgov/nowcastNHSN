@@ -29,3 +29,4 @@ data.frame with reporting triangle data
 \description{
 Fetch reporting data from Delphi Epidata
 }
+\concept{data_fetching}

@@ -8,6 +8,15 @@
 \description{
 Provides utilities for nowcasting and working with National Healthcare Safety Network (NHSN) data, including date conversion utilities for epidemiological week formats.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://cdcgov.github.io/nowcastNHSN/}
+  \item \url{https://github.com/CDCgov/nowcastNHSN}
+  \item Report bugs at \url{https://github.com/CDCgov/nowcastNHSN/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Sam Brand \email{usi1@cdc.gov}
 

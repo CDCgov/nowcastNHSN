@@ -8,6 +8,8 @@ Description: Provides utilities for nowcasting and working with National
     Healthcare Safety Network (NHSN) data, including date conversion
     utilities for epidemiological week formats.
 License: Apache License (>= 2)
+URL: https://cdcgov.github.io/nowcastNHSN/, https://github.com/CDCgov/nowcastNHSN
+BugReports: https://github.com/CDCgov/nowcastNHSN/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
@@ -25,6 +27,7 @@ Suggests:
     ggplot2,
     httptest2,
     knitr,
+    pkgdown,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

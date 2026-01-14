@@ -21,3 +21,4 @@ A source object of class "delphi_epidata_source"
 \description{
 Create a data source object for the Delphi Epidata API
 }
+\concept{data_sources}

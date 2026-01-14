@@ -1,0 +1,46 @@
+url: https://cdcgov.github.io/nowcastNHSN/
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+
+home:
+  title: "nowcastNHSN: Nowcasting Tools for NHSN Data"
+  description: >
+    R package for generating reporting triangles from NHSN hospital admissions
+    data and performing nowcasting to estimate unreported cases.
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [github]
+  components:
+    reference:
+      text: Reference
+      href: reference/index.html
+    articles:
+      text: Articles
+      menu:
+      - text: Getting Started
+        href: articles/getting-started.html
+
+reference:
+- title: Data Sources
+  desc: Factory functions for creating data source objects
+  contents:
+  - has_concept("data_sources")
+
+- title: Data Fetching
+  desc: Functions for fetching NHSN reporting data
+  contents:
+  - has_concept("data_fetching")
+
+- title: Date Utilities
+  desc: Utilities for working with epidemiological weeks and Saturday conventions
+  contents:
+  - has_concept("date_utils")
+
+authors:
+  Sam Brand:
+    href: https://github.com/seabbs
+  Dylan Morris:
+    href: https://github.com/dylanhmorris

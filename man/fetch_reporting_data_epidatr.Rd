@@ -36,9 +36,8 @@ for most all. Default is \code{"*"}.}
 A data frame in long format suitable for reporting triangle construction
 with columns:
 \itemize{
-\item \code{reference_date}: Date of the event (week-ending Saturday)
-\item \code{report_date}: Date when data was reported. This is the
-week-ending Saturday \emph{after} the epiweek when data was published.
+\item \code{reference_date}: Date of the event (epiweek-ending Saturday)
+\item \code{report_date}: Date when data was reported (epiweek-ending Saturday)
 \item \code{count}: Number of confirmed admissions
 \item \code{location}: Geographic identifier
 \item \code{signal}: Signal name
@@ -50,3 +49,4 @@ to a long format suitable for reporting triangle construction.
 Uses \code{reference_week_day = 7} by default to return Saturday week-ending
 dates, matching both MMWR epiweek and forecast hub conventions.
 }
+\concept{data_fetching}
