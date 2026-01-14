@@ -148,6 +148,13 @@ fetch_nhsn_data <- function(
 #'      date (incremental, not cumulative)
 #'   - `location`: Geographic identifier
 #'   - `signal`: Signal name
+#'
+#' @details
+#' The epidatr API returns cumulative counts (total reported as of each issue
+#' date). This function automatically converts them to incremental counts
+#' (new cases reported at each report date) using [cumulative_to_incremental()],
+#' which is the format expected by `baselinenowcast::as_reporting_triangle()`.
+#'
 #' @concept data_fetching
 #'
 #' @details
