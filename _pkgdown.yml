@@ -39,6 +39,12 @@ reference:
   contents:
   - has_concept("date_utils")
 
+- title: Probabilistic Methods
+  desc: Fitting and sampling methods for uncertainty quantification
+  contents:
+  - has_family("estimate_observation_error")
+  - has_family("sample_distribution")
+
 authors:
   Sam Brand:
     href: https://github.com/seabbs
