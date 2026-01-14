@@ -55,8 +55,7 @@ The epidatr API returns cumulative counts (total reported as of each issue
 date). This function automatically converts them to incremental counts
 (new cases reported at each report date) using \code{\link[=cumulative_to_incremental]{cumulative_to_incremental()}},
 which is the format expected by \code{baselinenowcast::as_reporting_triangle()}.
-}
-\details{
+
 The epidatr API returns cumulative counts (total reported as of each issue
 date). This function automatically converts them to incremental counts
 (new cases reported at each report date) using \code{\link[=cumulative_to_incremental]{cumulative_to_incremental()}},
