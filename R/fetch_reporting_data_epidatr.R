@@ -79,6 +79,7 @@ validate_nhsn_params <- function(signal, geo_type) {
 #'   - `lag`: Days between reference date and issue date
 #'   - `signal`: Signal name
 #'   - Additional metadata columns from `epidatr::pub_covidcast()`
+#' @concept data_fetching
 #' @export
 fetch_nhsn_data <- function(
   signal = "confirmed_admissions_covid_ew_prelim",
@@ -146,6 +147,7 @@ fetch_nhsn_data <- function(
 #'   - `count`: Number of confirmed admissions
 #'   - `location`: Geographic identifier
 #'   - `signal`: Signal name
+#' @concept data_fetching
 #' @export
 fetch_reporting_data_epidatr <- function(
   signal = "confirmed_admissions_covid_ew_prelim",

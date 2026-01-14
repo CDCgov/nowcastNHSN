@@ -27,6 +27,7 @@ validate_all_saturdays <- function(dates) {
 #' `epidatr::epirange` object (Saturday-ending weeks in YYYYWW format).
 #'
 #' @param dates A vector of dates. Must all be Saturdays.
+#' @concept date_utils
 #'
 #' @return An `epidatr::epirange` object covering the epiweeks corresponding
 #'   to the input dates.

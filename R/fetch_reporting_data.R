@@ -30,6 +30,7 @@ to_epirange <- function(x) {
 #' @param geo_types Character vector, geographic types to query (e.g., "state",
 #' "nation")
 #' @return A source object of class "delphi_epidata_source"
+#' @concept data_sources
 #' @export
 delphi_epidata_source <- function(
   target = c("covid", "flu", "rsv"),
@@ -60,6 +61,7 @@ delphi_epidata_source <- function(
 #' @param locations Character vector of locations
 #' @param ... Additional arguments passed to methods
 #' @return data.frame with columns: reference_date, report_date, location, count, signal
+#' @concept data_fetching
 #' @export
 fetch_reporting_data <- function(
   source,
@@ -79,6 +81,7 @@ fetch_reporting_data <- function(
 #' @param locations Character vector of locations ("*" for all)
 #' @param ... Additional arguments (unused)
 #' @return data.frame with reporting triangle data
+#' @concept data_fetching
 #' @export
 fetch_reporting_data.delphi_epidata_source <- function(
   source,
@@ -106,6 +109,7 @@ fetch_reporting_data.delphi_epidata_source <- function(
 #'
 #' @param source A source object
 #' @param ... Additional arguments (ignored)
+#' @keywords internal
 #' @export
 fetch_reporting_data.default <- function(source, ...) {
   rlang::abort(sprintf(

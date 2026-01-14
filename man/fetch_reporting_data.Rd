@@ -23,3 +23,4 @@ data.frame with columns: reference_date, report_date, location, count, signal
 \description{
 Generic function to fetch reporting triangle data using S3 method dispatch.
 }
+\concept{data_fetching}

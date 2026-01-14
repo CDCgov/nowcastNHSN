@@ -13,3 +13,6 @@
 ^open_practices\.md$
 ^rules_of_behavior\.md$
 ^thanks\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
