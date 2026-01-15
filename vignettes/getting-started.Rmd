@@ -16,6 +16,11 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r httptest-setup, include = FALSE}
+library(httptest)
+start_vignette("getting-started")
+```
+
 ```{r setup}
 library(nowcastNHSN)
 library(baselinenowcast)
@@ -71,24 +76,14 @@ locations <- c("ca", "ny")
 
 Now we can fetch the reporting data and filter out any report dates that are too far in the future:
 
-```{r fetch-data, message = FALSE, eval = !isTRUE(as.logical(Sys.getenv("CI")))}
-# Fetch the data (only runs locally, not in CI)
+```{r fetch-data, message = FALSE}
+# Fetch the data
 reporting_data <- fetch_reporting_data(
   source = source,
   reference_dates = reference_dates,
   report_dates = "*",
   locations = locations
 )
-```
-
-```{r save-data, echo = FALSE, eval = !isTRUE(as.logical(Sys.getenv("CI")))}
-# Save for use in CI builds
-saveRDS(reporting_data, "reporting_data_example.rds")
-```
-
-```{r load-cached-data, echo = FALSE, eval = isTRUE(as.logical(Sys.getenv("CI")))}
-# In CI, load pre-saved data
-reporting_data <- readRDS("reporting_data_example.rds")
 ```
 
 ```{r show-data}
@@ -452,3 +447,7 @@ ggplot(all_summaries, aes(x = reference_date)) +
 Note that both custom sampling distributions are capable of sampling down-revisions, albeit with different dispersion.
 The Skellam distribution is constrained to have higher variance than mean so is probably a better model for situations with low counts and fairly common down-revisions.
 The normal distribution (rounded) probably works better for larger counts with rare down-revisions.
+
+```{r httptest-teardown, include = FALSE}
+end_vignette()
+```

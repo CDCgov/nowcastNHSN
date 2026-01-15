@@ -27,7 +27,7 @@ Remotes:
     epinowcast/baselinenowcast
 Suggests:
     ggplot2,
-    httptest2,
+    httptest,
     knitr,
     pkgdown,
     rmarkdown,
