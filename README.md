@@ -7,11 +7,10 @@
 
 ## Overview
 
-This repository has three main purposes:
+This repository has two main purposes:
 
 1. Allows the generation of the "reporting triangle" for National Healthcare Safety Network (NHSN) hospitalization incidence data for Covid-19, Influenza, and RSV.
 2. Implements a generative nowcasting model(s) to estimate the number of hospitalizations that have occurred but not yet been reported to NHSN.
-3. Makes these nowcasts available for use by relevant modelling teams.
 
 ## Project admins
 
