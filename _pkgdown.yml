@@ -39,6 +39,16 @@ reference:
   contents:
   - has_concept("date_utils")
 
+- title: Probabilistic Methods
+  desc: Fitting and sampling methods for uncertainty quantification
+  contents:
+  - has_concept("probabilistic_methods")
+
+- title: Data Processing
+  desc: Data transformation utilities
+  contents:
+  - has_concept("data_processing")
+
 authors:
   Sam Brand:
     href: https://github.com/seabbs

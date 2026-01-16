@@ -25,7 +25,10 @@ concurrency:
 jobs:
   pkgdown:
     runs-on: ubuntu-latest
-    environment: ${{ (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && 'github-pages' || null }}
+    # Only set environment for deployments from main branch
+    environment:
+      name: ${{ github.event_name != 'pull_request' && 'github-pages' || null }}
+      url: ${{ steps.deployment.outputs.page_url }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
