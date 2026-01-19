@@ -100,6 +100,29 @@ test_that("fit_skellam method of moments matches fit_normal", {
   expect_equal(var_skellam, var_normal)
 })
 
+test_that("fit_skellam MLE recovers true variance from simulated data", {
+  # Generate Skellam samples with known parameters
+  lambda1 <- 3
+  lambda2 <- 1
+  true_mean <- lambda1 - lambda2 # = 2
+  true_variance <- lambda1 + lambda2 # = 4
+  n <- 1000
+
+  obs <- withr::with_seed(
+    42,
+    rpois(n, lambda1) - rpois(n, lambda2)
+  )
+  pred <- rep(true_mean, n)
+
+  variance_mle_est <- fit_skellam(obs, pred, method = "mle")
+  variance_mom_est <- fit_skellam(obs, pred, method = "mom")
+
+  # Should recover variance close to 4
+
+  expect_equal(variance_mle_est, true_variance, tolerance = 0.05)
+  expect_equal(variance_mom_est, true_variance, tolerance = 0.05)
+})
+
 test_that("fit_skellam MLE returns positive variance", {
   set.seed(123)
   # Generate Skellam samples

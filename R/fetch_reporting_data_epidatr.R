@@ -144,24 +144,14 @@ fetch_nhsn_data <- function(
 #'   with columns:
 #'   - `reference_date`: Date of the event (epiweek-ending Saturday)
 #'   - `report_date`: Date when data was reported (epiweek-ending Saturday)
-#'   - `count`: Number of **new** confirmed admissions reported on that report
-#'      date (incremental, not cumulative)
+#'   - `count`: Cumulative confirmed admissions reported as of that report date
 #'   - `location`: Geographic identifier
 #'   - `signal`: Signal name
 #'
-#' @details
-#' The epidatr API returns cumulative counts (total reported as of each issue
-#' date). This function automatically converts them to incremental counts
-#' (new cases reported at each report date) using [cumulative_to_incremental()],
-#' which is the format expected by `baselinenowcast::as_reporting_triangle()`.
-#'
 #' @concept data_fetching
-#'
-#' @details
 #' The epidatr API returns cumulative counts (total reported as of each issue
-#' date). This function automatically converts them to incremental counts
-#' (new cases reported at each report date) using [cumulative_to_incremental()],
-#' which is the format expected by `baselinenowcast::as_reporting_triangle()`.
+#' date). Use [cumulative_to_incremental()] to convert to incremental counts
+#' if needed for `baselinenowcast::as_reporting_triangle()`.
 #'
 #' @export
 fetch_reporting_data_epidatr <- function(
@@ -204,13 +194,6 @@ fetch_reporting_data_epidatr <- function(
       "signal"
     ) |>
     dplyr::arrange(.data$reference_date, .data$report_date)
-
-  # Convert cumulative counts to incremental counts
-  # (epidatr returns cumulative, baselinenowcast expects incremental)
-  results <- cumulative_to_incremental(
-    results,
-    group_cols = c("reference_date", "location", "signal")
-  )
 
   results
 }

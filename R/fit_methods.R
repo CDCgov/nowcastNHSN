@@ -76,9 +76,14 @@ fit_normal <- function(x, mu) {
 dskellam_log <- function(x, lambda1, lambda2) {
   # Skellam PMF: exp(-(λ₁+λ₂)) * (λ₁/λ₂)^(x/2) * I_|x|(2*sqrt(λ₁*λ₂))
   # Log form for numerical stability
+  # Use expon.scaled = TRUE to avoid overflow in besselI for large arguments
+  # besselI(z, nu, expon.scaled = TRUE) = exp(-z) * besselI(z, nu)
+  # So log(besselI(z, nu)) = log(besselI(z, nu, scaled)) + z
+  z <- 2 * sqrt(lambda1 * lambda2)
   log_pmf <- -(lambda1 + lambda2) +
     (x / 2) * log(lambda1 / lambda2) +
-    log(besselI(2 * sqrt(lambda1 * lambda2), nu = abs(x), expon.scaled = FALSE))
+    log(besselI(z, nu = abs(x), expon.scaled = TRUE)) +
+    z
 
   return(log_pmf)
 }
@@ -175,8 +180,14 @@ fit_skellam <- function(x, mu, method = "mle") {
       optimize(nllik, c(min_variance, upper_bound))
     )
 
-    # Check for convergence
-    check_optimize_convergence(opt, context = "Skellam variance estimation")
+    # Check convergence - suggest method of moments if MLE fails
+    if (!is.finite(opt$objective)) {
+      cli::cli_abort(c(
+        "Skellam MLE optimization failed to converge.",
+        i = "Try using {.code method = \"mom\"} for method of moments estimation.",
+        i = "The objective function returned {.val {opt$objective}} at minimum."
+      ))
+    }
 
     variance <- opt$minimum
   }
