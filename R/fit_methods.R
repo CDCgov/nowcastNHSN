@@ -1,3 +1,28 @@
+#' Check optimize() result for convergence
+#'
+#' @description
+#' Utility function to validate that `stats::optimize()` found a valid minimum.
+#' Checks that the objective value is finite (not Inf or NaN).
+#'
+#' @param opt_result The result from `stats::optimize()`.
+#' @param context Optional character string describing what was being optimized,
+#'   used in error messages.
+#' @returns NULL invisibly if valid, otherwise throws an error.
+#' @importFrom cli cli_abort
+#' @keywords internal
+#' @noRd
+check_optimize_convergence <- function(opt_result, context = "optimization") {
+  if (!is.finite(opt_result$objective)) {
+    cli::cli_abort(c(
+      "Optimization failed to converge.",
+      x = "Could not find valid parameters for {context}.",
+      i = "The objective function returned {.val {opt_result$objective}} at minimum."
+    ))
+  }
+  invisible(NULL)
+}
+
+
 #' Fit a normal distribution with fixed mean to estimate variance
 #'
 #' @description
@@ -149,6 +174,9 @@ fit_skellam <- function(x, mu, method = "mle") {
     opt <- suppressWarnings(
       optimize(nllik, c(min_variance, upper_bound))
     )
+
+    # Check for convergence
+    check_optimize_convergence(opt, context = "Skellam variance estimation")
 
     variance <- opt$minimum
   }
