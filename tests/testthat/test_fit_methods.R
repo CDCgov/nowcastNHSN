@@ -9,9 +9,7 @@ test_that("fit_normal returns correct MLE variance", {
   obs <- c(5, 10, 15)
   pred <- c(5, 10, 15)
   expect_equal(fit_normal(obs, pred), 0)
-})
 
-test_that("fit_normal computes mean squared error correctly", {
   # Known case: deviations of 1, 2, 3 -> MSE = (1 + 4 + 9) / 3 = 14/3
   obs <- c(1, 2, 3)
   pred <- c(0, 0, 0)
@@ -48,16 +46,32 @@ test_that("fit_normal returns NA when all values are NA", {
 # dskellam_log tests
 # ============================================================================
 
-test_that("dskellam_log returns finite values for valid inputs", {
+test_that("dskellam_log returns finite log-probabilities for valid inputs", {
   # When lambda1 = lambda2, mean is 0
   log_prob <- dskellam_log(0, lambda1 = 5, lambda2 = 5)
   expect_true(is.finite(log_prob))
   expect_true(log_prob <= 0) # Log probabilities are <= 0
-})
-test_that("dskellam_log handles negative observations", {
+
   # Skellam can produce negative values
-  log_prob <- dskellam_log(-2, lambda1 = 3, lambda2 = 5)
-  expect_true(is.finite(log_prob))
+  log_prob_neg <- dskellam_log(-2, lambda1 = 3, lambda2 = 5)
+  expect_true(is.finite(log_prob_neg))
+})
+
+test_that("dskellam_log matches log of manual PMF computation", {
+  # For numerically stable case with small lambdas, verify log-PMF matches
+  # log of explicit Skellam PMF: exp(-(λ₁+λ₂)) * (λ₁/λ₂)^(x/2) * I_|x|(2*sqrt(λ₁*λ₂))
+  x <- 1
+  lambda1 <- 3
+  lambda2 <- 2
+
+  log_result <- dskellam_log(x, lambda1, lambda2)
+
+  # Manual unlogged computation (stable for these small values)
+  manual_pmf <- exp(-(lambda1 + lambda2)) *
+    (lambda1 / lambda2)^(x / 2) *
+    besselI(2 * sqrt(lambda1 * lambda2), nu = abs(x))
+
+  expect_equal(log_result, log(manual_pmf), tolerance = 1e-10)
 })
 
 test_that("dskellam_log is vectorized", {
@@ -122,10 +136,9 @@ test_that("fit_skellam returns NA when all values are NA", {
 })
 
 test_that("fit_skellam requires integer observations", {
-  obs <- c(1.5, 2.5, 3.5) # Non-integers
-
+  obs <- c(1.5, 2.5, 3.5)
   pred <- c(1, 2, 3)
-  expect_error(fit_skellam(obs, pred))
+  expect_error(fit_skellam(obs, pred), "integerish")
 })
 
 test_that("fit_skellam MLE respects variance > |mu| constraint", {
