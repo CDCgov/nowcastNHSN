@@ -15,20 +15,24 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     baselinenowcast (>= 0.0.0.1000),
+    checkmate,
+    cli,
     dplyr,
     epidatr,
     lubridate,
     purrr,
-    rlang
+    rlang,
+    vctrs
 Remotes:
     cmu-delphi/epidatr,
     epinowcast/baselinenowcast
 Suggests:
     ggplot2,
-    httptest2,
+    httptest,
     knitr,
     pkgdown,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr

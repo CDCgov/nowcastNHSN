@@ -38,7 +38,7 @@ with columns:
 \itemize{
 \item \code{reference_date}: Date of the event (epiweek-ending Saturday)
 \item \code{report_date}: Date when data was reported (epiweek-ending Saturday)
-\item \code{count}: Number of confirmed admissions
+\item \code{count}: Cumulative confirmed admissions reported as of that report date
 \item \code{location}: Geographic identifier
 \item \code{signal}: Signal name
 }
@@ -49,4 +49,7 @@ to a long format suitable for reporting triangle construction.
 Uses \code{reference_week_day = 7} by default to return Saturday week-ending
 dates, matching both MMWR epiweek and forecast hub conventions.
 }
-\concept{data_fetching}
+\concept{data_fetching
+The epidatr API returns cumulative counts (total reported as of each issue
+date). Use [cumulative_to_incremental()] to convert to incremental counts
+if needed for `baselinenowcast::as_reporting_triangle()`.}

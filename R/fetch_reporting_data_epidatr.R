@@ -144,10 +144,15 @@ fetch_nhsn_data <- function(
 #'   with columns:
 #'   - `reference_date`: Date of the event (epiweek-ending Saturday)
 #'   - `report_date`: Date when data was reported (epiweek-ending Saturday)
-#'   - `count`: Number of confirmed admissions
+#'   - `count`: Cumulative confirmed admissions reported as of that report date
 #'   - `location`: Geographic identifier
 #'   - `signal`: Signal name
+#'
 #' @concept data_fetching
+#' The epidatr API returns cumulative counts (total reported as of each issue
+#' date). Use [cumulative_to_incremental()] to convert to incremental counts
+#' if needed for `baselinenowcast::as_reporting_triangle()`.
+#'
 #' @export
 fetch_reporting_data_epidatr <- function(
   signal = "confirmed_admissions_covid_ew_prelim",
@@ -165,6 +170,20 @@ fetch_reporting_data_epidatr <- function(
     issues = report_dates,
     ...
   )
+
+  # Handle empty results - return empty data frame with expected columns
+  if (nrow(results) == 0) {
+    return(
+      data.frame(
+        reference_date = as.Date(character()),
+        report_date = as.Date(character()),
+        count = numeric(),
+        location = character(),
+        signal = character()
+      )
+    )
+  }
+
   # Format for baselinenowcast
   results <- results |>
     dplyr::select(
