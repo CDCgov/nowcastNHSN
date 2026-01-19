@@ -36,7 +36,7 @@ test_that("sample_normal errors on length mismatch", {
 
   expect_error(
     sample_normal(pred, uncertainty_params = variances),
-    "Length mismatch"
+    "recycle"
   )
 })
 
@@ -118,7 +118,7 @@ test_that("sample_skellam errors on length mismatch", {
 
   expect_error(
     sample_skellam(pred, uncertainty_params = variances),
-    "Length mismatch"
+    "recycle"
   )
 })
 

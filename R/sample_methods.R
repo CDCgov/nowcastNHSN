@@ -11,6 +11,7 @@
 #' @returns Integer vector of samples of the same length as `pred`.
 #' @importFrom stats rnorm
 #' @importFrom cli cli_abort
+#' @importFrom vctrs vec_recycle
 #' @family sample_distribution
 #' @concept probabilistic_methods
 #' @export
@@ -20,18 +21,12 @@
 #' samples <- sample_normal(pred, uncertainty_params = variance)
 #' samples
 sample_normal <- function(pred, uncertainty_params) {
-  # Recycle variance if single value provided
-  if (length(uncertainty_params) == 1) {
-    uncertainty_params <- rep(uncertainty_params, length(pred))
-  }
-
-  if (length(pred) != length(uncertainty_params)) {
-    cli_abort(c(
-      "Length mismatch between predictions and uncertainty parameters",
-      x = "`pred` has length {length(pred)}, `uncertainty_params` has length {length(uncertainty_params)}", # nolint: line_length_linter
-      i = "Provide either a single variance or one per prediction"
-    ))
-  }
+  # Recycle uncertainty_params to match pred length (only length-1 recycling)
+  uncertainty_params <- vctrs::vec_recycle(
+    uncertainty_params,
+    size = length(pred),
+    x_arg = "uncertainty_params"
+  )
 
   # Sample from normal with mean = pred, sd = sqrt(variance)
   sampled_pred <- rnorm(
@@ -66,6 +61,7 @@ sample_normal <- function(pred, uncertainty_params) {
 #' @returns Integer vector of samples of the same length as `pred`.
 #' @importFrom stats rpois
 #' @importFrom cli cli_abort
+#' @importFrom vctrs vec_recycle
 #' @family sample_distribution
 #' @concept probabilistic_methods
 #' @export
@@ -75,18 +71,12 @@ sample_normal <- function(pred, uncertainty_params) {
 #' samples <- sample_skellam(pred, uncertainty_params = variance)
 #' samples
 sample_skellam <- function(pred, uncertainty_params) {
-  # Recycle variance if single value provided
-  if (length(uncertainty_params) == 1) {
-    uncertainty_params <- rep(uncertainty_params, length(pred))
-  }
-
-  if (length(pred) != length(uncertainty_params)) {
-    cli_abort(c(
-      "Length mismatch between predictions and uncertainty parameters",
-      x = "`pred` has length {length(pred)}, `uncertainty_params` has length {length(uncertainty_params)}", # nolint: line_length_linter
-      i = "Provide either a single variance or one per prediction"
-    ))
-  }
+  # Recycle uncertainty_params to match pred length (only length-1 recycling)
+  uncertainty_params <- vctrs::vec_recycle(
+    uncertainty_params,
+    size = length(pred),
+    x_arg = "uncertainty_params"
+  )
 
   # Compute Poisson parameters
   lambda1 <- 0.5 * (pred + uncertainty_params)

@@ -21,7 +21,8 @@ Imports:
     epidatr,
     lubridate,
     purrr,
-    rlang
+    rlang,
+    vctrs
 Remotes:
     cmu-delphi/epidatr,
     epinowcast/baselinenowcast
