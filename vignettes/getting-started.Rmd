@@ -113,7 +113,9 @@ all_report_dates <- sort(unique(reporting_data$report_date[reporting_data$locati
 selected_report_dates <- c(
   all_report_dates[seq(1, length(all_report_dates) - 1, length.out = 4) |> round()],
   max(all_report_dates)  # Always include the latest report date
-) |> unique() |> sort()
+) |>
+  unique() |>
+  sort()
 
 selected_reports <- reporting_data |>
   filter(
