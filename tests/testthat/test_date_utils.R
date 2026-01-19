@@ -44,31 +44,37 @@ test_that("cumulative_to_incremental converts cumulative to incremental", {
 })
 
 test_that("cumulative_to_incremental handles multiple reference dates", {
+  # Data with rows in scrambled order (not grouped by reference_date)
   multi_ref_data <- data.frame(
     reference_date = as.Date(c(
-      "2024-01-06",
+      "2024-01-13",
       "2024-01-06",
       "2024-01-13",
-      "2024-01-13"
+      "2024-01-06"
     )),
     report_date = as.Date(c(
+      "2024-01-27",
       "2024-01-13",
       "2024-01-20",
-      "2024-01-20",
-      "2024-01-27"
+      "2024-01-20"
     )),
-    count = c(100, 120, 50, 60),
+    count = c(60, 100, 50, 120),
     location = "ca"
   )
 
   result <- cumulative_to_incremental(multi_ref_data)
 
-  # Reference date 2024-01-06: 100, 20
-  # Reference date 2024-01-13: 50, 10
-  expect_equal(result$count, c(100, 20, 50, 10))
+  # Reference date 2024-01-06: 100, 20 (cumulative 100, 120)
+  # Reference date 2024-01-13: 50, 10 (cumulative 50, 60)
+  # Check by filtering to each reference_date
+  ref_06 <- result[result$reference_date == as.Date("2024-01-06"), ]
+  ref_13 <- result[result$reference_date == as.Date("2024-01-13"), ]
+  expect_equal(ref_06$count[order(ref_06$report_date)], c(100, 20))
+  expect_equal(ref_13$count[order(ref_13$report_date)], c(50, 10))
 })
 
 test_that("cumulative_to_incremental handles multiple locations", {
+  # Data with interleaved locations (ca, ny, ca, ny) - not grouped
   multi_loc_data <- data.frame(
     reference_date = as.Date(c(
       "2024-01-06",
@@ -78,19 +84,22 @@ test_that("cumulative_to_incremental handles multiple locations", {
     )),
     report_date = as.Date(c(
       "2024-01-13",
-      "2024-01-20",
       "2024-01-13",
+      "2024-01-20",
       "2024-01-20"
     )),
-    count = c(100, 120, 50, 55),
-    location = c("ca", "ca", "ny", "ny")
+    count = c(100, 50, 120, 55),
+    location = c("ca", "ny", "ca", "ny")
   )
 
   result <- cumulative_to_incremental(multi_loc_data)
 
-  # CA: 100, 20
-  # NY: 50, 5
-  expect_equal(result$count, c(100, 20, 50, 5))
+  # CA: 100, 20 (cumulative 100, 120)
+  # NY: 50, 5 (cumulative 50, 55)
+  ca_result <- result[result$location == "ca", ]
+  ny_result <- result[result$location == "ny", ]
+  expect_equal(ca_result$count[order(ca_result$report_date)], c(100, 20))
+  expect_equal(ny_result$count[order(ny_result$report_date)], c(50, 5))
 })
 
 test_that("cumulative_to_incremental handles unordered report dates", {
