@@ -114,7 +114,7 @@ test_that("cumulative_to_incremental errors on missing columns", {
 
   expect_error(
     cumulative_to_incremental(bad_data),
-    "Missing: count"
+    "count"
   )
 })
 

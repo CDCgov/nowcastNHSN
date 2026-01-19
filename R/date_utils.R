@@ -3,16 +3,20 @@
 #' @description
 #' Internal helper function to validate that all provided dates fall on
 #' Saturday as per the using the MMWR epiweek week-ending convention.
+#' @importFrom checkmate assert_date
 #' @noRd
 validate_all_saturdays <- function(dates) {
   dates <- as.Date(dates)
-  weekdays_check <- weekdays(dates)
+  checkmate::assert_date(dates, any.missing = FALSE, .var.name = "dates")
 
-  if (!all(weekdays_check == "Saturday")) {
-    bad_dates <- dates[weekdays_check != "Saturday"]
-    rlang::abort(sprintf(
-      "All dates must be Saturdays. Got: %s",
-      paste(format(bad_dates, "%Y-%m-%d (%A)"), collapse = ", ")
+  weekdays_check <- weekdays(dates)
+  is_saturday <- weekdays_check == "Saturday"
+
+  if (!all(is_saturday)) {
+    bad_dates <- dates[!is_saturday]
+    cli::cli_abort(c(
+      "All dates must be Saturdays.",
+      x = "Found non-Saturday dates: {.val {format(bad_dates, '%Y-%m-%d (%A)')}}"
     ))
   }
 
@@ -28,22 +32,18 @@ validate_all_saturdays <- function(dates) {
 #' count).
 #' @param data A data frame to validate.
 #' @param required_cols Character vector of required column names.
+#' @importFrom checkmate assert_data_frame assert_names
 #' @noRd
 validate_reporting_data <- function(
   data,
   required_cols = c("reference_date", "report_date", "count")
 ) {
-  missing_cols <- setdiff(required_cols, names(data))
-  if (length(missing_cols) > 0) {
-    rlang::abort(
-      paste0(
-        "Data must contain columns: ",
-        paste(required_cols, collapse = ", "),
-        ". Missing: ",
-        paste(missing_cols, collapse = ", ")
-      )
-    )
-  }
+  checkmate::assert_data_frame(data, min.rows = 0, .var.name = "data")
+  checkmate::assert_names(
+    names(data),
+    must.include = required_cols,
+    .var.name = "column names"
+  )
 
   invisible(NULL)
 }

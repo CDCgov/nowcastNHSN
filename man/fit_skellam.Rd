@@ -46,7 +46,7 @@ lambda2 <- 0.5 * (variance - mu_new)
 # samples <- rpois(n, lambda1) - rpois(n, lambda2)
 }
 \seealso{
-Other estimate_observation_error:
+Other estimate_observation_error: 
 \code{\link{fit_normal}()}
 }
 \concept{estimate_observation_error}
