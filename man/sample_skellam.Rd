@@ -40,7 +40,7 @@ samples <- sample_skellam(pred, uncertainty_params = variance)
 samples
 }
 \seealso{
-Other sample_distribution: 
+Other sample_distribution:
 \code{\link{sample_normal}()}
 }
 \concept{probabilistic_methods}

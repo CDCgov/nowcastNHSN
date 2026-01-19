@@ -26,7 +26,7 @@ variance <- fit_normal(obs, pred)
 variance
 }
 \seealso{
-Other estimate_observation_error: 
+Other estimate_observation_error:
 \code{\link{fit_skellam}()}
 }
 \concept{estimate_observation_error}

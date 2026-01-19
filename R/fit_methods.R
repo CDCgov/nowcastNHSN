@@ -77,8 +77,7 @@ dskellam_log <- function(x, lambda1, lambda2) {
   # Skellam PMF: exp(-(λ₁+λ₂)) * (λ₁/λ₂)^(x/2) * I_|x|(2*sqrt(λ₁*λ₂))
   # Log form for numerical stability
   # Use expon.scaled = TRUE to avoid overflow in besselI for large arguments
-  # besselI(z, nu, expon.scaled = TRUE) = exp(-z) * besselI(z, nu)
-  # So log(besselI(z, nu)) = log(besselI(z, nu, scaled)) + z
+
   z <- 2 * sqrt(lambda1 * lambda2)
   log_pmf <- -(lambda1 + lambda2) +
     (x / 2) * log(lambda1 / lambda2) +
