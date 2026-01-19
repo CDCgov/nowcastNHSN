@@ -50,28 +50,32 @@ test_that("sample_normal with zero variance returns predictions", {
 })
 
 test_that("sample_normal produces samples with correct mean (approx)", {
-  set.seed(42)
   pred <- 100
   variance <- 4
   n_samples <- 10000
 
   # Generate many samples
-  samples <- replicate(n_samples, sample_normal(pred, variance))
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_normal(pred, variance))
+  )
 
   # Mean should be close to pred
-  expect_true(abs(mean(samples) - pred) < 0.5)
+  expect_equal(mean(samples), pred, tolerance = 0.5)
 })
 
 test_that("sample_normal produces samples with correct variance (approx)", {
-  set.seed(42)
   pred <- 0
   variance <- 9
   n_samples <- 10000
 
-  samples <- replicate(n_samples, sample_normal(pred, variance))
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_normal(pred, variance))
+  )
 
   # Variance should be close to specified variance
-  expect_true(abs(var(samples) - variance) < 1)
+  expect_equal(var(samples), variance, tolerance = 1)
 })
 
 # ============================================================================
@@ -143,37 +147,43 @@ test_that("sample_skellam handles negative predictions", {
 })
 
 test_that("sample_skellam produces samples with correct mean (approx)", {
-  set.seed(42)
   pred <- 5
   variance <- 20 # lambda1 = 12.5, lambda2 = 7.5
   n_samples <- 10000
 
-  samples <- replicate(n_samples, sample_skellam(pred, variance))
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance))
+  )
 
   # Mean should be close to pred
-  expect_true(abs(mean(samples) - pred) < 0.5)
+  expect_equal(mean(samples), pred, tolerance = 0.5)
 })
 
 test_that("sample_skellam produces samples with correct variance (approx)", {
-  set.seed(42)
   pred <- 0
   # When pred=0 and variance=20, lambda1 = lambda2 = 10
   variance <- 20
   n_samples <- 10000
 
-  samples <- replicate(n_samples, sample_skellam(pred, variance))
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance))
+  )
 
   # Variance should be close to specified variance
-  expect_true(abs(var(samples) - variance) < 2)
+  expect_equal(var(samples), variance, tolerance = 2)
 })
 
 test_that("sample_skellam can produce negative samples", {
-  set.seed(42)
   pred <- -5
   variance <- 20
   n_samples <- 100
 
-  samples <- replicate(n_samples, sample_skellam(pred, variance))
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance))
+  )
 
   # With mean of -5, we should see many negative values
   expect_true(sum(samples < 0) > 0)
