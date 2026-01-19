@@ -134,13 +134,11 @@ cumulative_to_incremental <- function(
   # Ensure group_cols exist in data
   missing_cols <- setdiff(group_cols, names(data))
   if (length(missing_cols) > 0) {
-    rlang::warn(
-      paste0(
-        "Group columns not found in data, ignoring: ",
-        paste(missing_cols, collapse = ", ")
-      )
-    )
-    group_cols <- intersect(group_cols, names(data))
+    cli::cli_abort(c(
+      "Group columns not found in data.",
+      x = "Missing columns: {.val {missing_cols}}",
+      i = "Specify {.arg group_cols} explicitly if your data doesn't have these columns."
+    ))
   }
 
   # Convert cumulative to incremental

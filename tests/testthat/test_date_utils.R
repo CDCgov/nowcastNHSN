@@ -118,14 +118,14 @@ test_that("cumulative_to_incremental errors on missing columns", {
   )
 })
 
-test_that("cumulative_to_incremental warns on missing group columns", {
+test_that("cumulative_to_incremental errors on missing group columns", {
   no_location_data <- cumulative_fixture[, c(
     "reference_date",
     "report_date",
     "count"
   )]
 
-  expect_warning(
+  expect_error(
     cumulative_to_incremental(no_location_data),
     "Group columns not found"
   )
