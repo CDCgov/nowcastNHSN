@@ -62,13 +62,13 @@ We'll define the time period and locations we want to fetch data for:
 
 ```{r define-parameters}
 # Define reference dates as an epirange (YYYYWW format)
-epiweeks <- epidatr::epirange(202450, 202520)
+epiweeks <- epidatr::epirange(202450, 202527)
 
 reference_dates <- epiweeks
 
 # For report dates, use "*" to get all available issue dates
 # This will retrieve the full reporting history
-report_dates <- epidatr::epirange(202450, 202525)
+report_dates <- epidatr::epirange(202450, 202530)
 
 # Fetch data for specific states (lowercase for epidata API)
 locations <- c("ca", "ny")
@@ -81,7 +81,7 @@ Now we can fetch the reporting data and filter out any report dates that are too
 reporting_data <- fetch_reporting_data(
   source = source,
   reference_dates = reference_dates,
-  report_dates = "*",
+  report_dates = report_dates,
   locations = locations
 )
 ```
@@ -96,42 +96,33 @@ The returned data frame contains columns:
 - `reference_date`: The Saturday ending the week when events occurred
 - `report_date`: The Saturday when the data was reported
 - `location`: Geographic identifier (state abbreviation or "US")
-- `count`: Number of **new** COVID-19 hospital admissions reported on that report date (incremental, not cumulative)
+- `count`: Cumulative COVID-19 hospital admissions reported as of that report date
 - `signal`: The epidata signal name
-
-Note that `fetch_reporting_data()` automatically converts the cumulative counts from the API to incremental counts, which is the format expected by `baselinenowcast::as_reporting_triangle()`.
-For visualization of how vintages evolve over time, we'll also compute cumulative totals:
 
 ### Visualizing Reporting Delays
 
 A feature of reporting data is that counts for the same reference date can change as new reports come in.
 This backfilling of the data is a common challenge in using the latest data for real-time forecasting.
-To visualize this, we first compute cumulative totals from the incremental counts, then plot the time series of Californian Covid-19 hospitalisations at different report dates:
+Let's visualize the vintage cumulative data to see how the time series of Californian Covid-19 hospitalisations evolves at different report dates:
 
 ```{r plot-delays, fig.width = 7, fig.height = 5, class.source = 'fold-hide'}
-# Compute cumulative totals for visualization of vintages
-# (sum of incremental counts up to each report date)
-reporting_data_cumulative <- reporting_data |>
-  arrange(location, reference_date, report_date) |>
-  group_by(location, reference_date) |>
-  mutate(cumulative_count = cumsum(count)) |>
-  ungroup()
-
+# Use the cumulative data directly from the API for vintage visualization
 # Select a few report dates to compare
-# Pick 5 evenly spaced report dates to show evolution over time
-all_report_dates <- sort(unique(reporting_data_cumulative$report_date[reporting_data_cumulative$location == "ca"]))
-selected_report_dates <- all_report_dates[
-  seq(1, length(all_report_dates), length.out = 5) |> round()
-]
+# Pick 4 evenly spaced report dates plus the latest to show evolution over time
+all_report_dates <- sort(unique(reporting_data$report_date[reporting_data$location == "ca"]))
+selected_report_dates <- c(
+  all_report_dates[seq(1, length(all_report_dates) - 1, length.out = 4) |> round()],
+  max(all_report_dates)  # Always include the latest report date
+) |> unique() |> sort()
 
-selected_reports <- reporting_data_cumulative |>
+selected_reports <- reporting_data |>
   filter(
     location == "ca",
     report_date %in% selected_report_dates
   )
 
-# Create the plot
-ggplot(selected_reports, aes(x = reference_date, y = cumulative_count, color = as.factor(report_date))) +
+# Create the plot using the cumulative counts directly from the API
+ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(report_date))) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
   scale_y_log10() +
@@ -148,18 +139,31 @@ ggplot(selected_reports, aes(x = reference_date, y = cumulative_count, color = a
 ```
 
 This plot shows how the same reference dates can have different reported counts depending on when the data was reported.
-Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports.
+Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports, but not that downward revisions also occur.
+
+Note that `reporting_data` are the total reported counts at various reference dates and report dates.
+For nowcasting with `baselinenowcast`, we need incremental counts (new reports at each report date).
+We can convert using `cumulative_to_incremental()`:
+
+```{r convert-to-incremental}
+# Convert cumulative counts to incremental counts
+incremental_reporting_data <- cumulative_to_incremental(
+  reporting_data,
+  group_cols = c("reference_date", "location", "signal")
+)
+head(reporting_data)
+```
 
 ### Converting to a Reporting Triangle
 
 To perform nowcasting analysis, we need to convert the fetched reporting data into a reporting triangle format, which organizes counts by reference date and delay.
-We can use the `baselinenowcast::as_reporting_triangle()` function to do this.
-The data from `fetch_reporting_data()` is already in the long format required by `baselinenowcast::as_reporting_triangle()`.
-Note that the reporting triangle is created for a single location at a time:
+We use the `baselinenowcast::as_reporting_triangle()` function to do this.
+The data from `fetch_reporting_data()` is already in the long format required by `baselinenowcast::as_reporting_triangle()`, and we have converted to incremental.
+The reporting triangle can be set to have a maximum delay, and in this example we treat 7 weeks as the maximum period over which new reports for a reference date can arrive.
 
 ```{r create-triangle, message = FALSE}
 # Filter to a single location (California) for the reporting triangle
-ca_data <- reporting_data |>
+ca_data <- incremental_reporting_data |>
   filter(location == "ca")
 
 nowcast_date <- max(ca_data$reference_date)
@@ -171,17 +175,18 @@ reporting_triangle <- as_reporting_triangle(
   ca_data,
   delays_unit = "weeks"
 ) |>
-  truncate_to_delay(max_delay = 15)
+  truncate_to_delay(max_delay = 7)
 
 # View the reporting triangle structure
 print(reporting_triangle)
 ```
 
 The reporting triangle is now ready for nowcasting analysis using the `baselinenowcast` package.
+Again, note that, although the overall pattern is that most reports for a reference date occur at lags of 1-2 weeks as upward revisions, downward revisions also occur and are seen as negative values in the reporting triangle.
 
 ### Heatmap View of Reporting Triangle
 
-A heatmap provides another useful way to visualize the reporting triangle structure, showing how counts evolve across different combinations of reference and report dates:
+A heatmap provides another useful way to visualize the reporting triangle structure, showing when case counts for a reference date are reported relative to the reference date over a range of delays and report dates:
 
 ```{r plot-heatmap, fig.width = 8, fig.height = 6, class.source = 'fold-hide'}
 # Extract data from reporting triangle for visualization
@@ -209,7 +214,8 @@ ggplot(rt_data, aes(x = reference_date, y = report_date, fill = count)) +
   )
 ```
 
-In this heatmap, the diagonal represents the most recent data available at each time point, while values below the diagonal show how historical data has been revised upward through backfill.
+In this heatmap, the diagonal represents the count reported on the reference date itself, which for NHSN is always zero.
+Values above the diagonal show when reports for a historical reference date are made in subsequent weeks.
 
 ## Using `baselinenowcast` for Nowcasting
 
@@ -218,7 +224,8 @@ Now that we have our reporting triangle, we can use it to generate nowcasts that
 
 ### Fitting the Baseline Nowcast Model
 
-The baseline nowcast model fits a simple delay distribution to the reporting triangle and uses it to predict the expected final count.
+The baseline nowcast model fits an empirical delay distribution to the reporting triangle which creates a point prediction for the expected final count using a "chain ladder" of multipliers.
+The point predictions are converted into sampled probabilistic nowcasts by fitting past residuals to a chosen parameteric model, with the default being a negative binomial with mean fixed at the point estimate; see [mathematical methods](https://baselinenowcast.epinowcast.org/articles/model_definition.html) for details.
 We can fit the model and generate predictions as follows:
 
 ```{r fit-nowcast, message = FALSE}
@@ -257,7 +264,7 @@ latest_cumulative <- ca_data |>
 comparison <- nowcast_predictions |>
   left_join(latest_cumulative, by = "reference_date") |>
   mutate(
-    reporting_completeness = latest_count / median * 100
+    reporting_completeness = (latest_count / median) * 100
   )
 
 # View the comparison
@@ -314,17 +321,15 @@ ggplot(comparison, aes(x = reference_date, y = reporting_completeness)) +
   theme_minimal()
 ```
 
-This completeness plot shows that recent reference dates typically have lower reporting completeness, as expected.
+This completeness plot shows that the most recent reference dates typically have lower reporting completeness, as expected.
 For forecasting applications, the nowcast estimates can be used to adjust for this expected under-reporting when generating predictions.
 
 ## Custom Uncertainty Models
 
-The `baselinenowcast` package makes point estimates for the predicted eventual reports on data references dates.
-For uncertainty quantification, `baselinenowcast` also makes dispersion estimates from retrospective data using the point estimates as fixed means.
-This also allows us to sample reference date/lag realisations from the nowcast model using a parametric distribution, which by default is a negative binomial.
-However, `nowcastNHSN` provides alternative uncertainty models that may be more appropriate for different data characteristics.
-In particular, sometimes we see down revisions to NHSN data which has probability zero under a negative binomial model.
-`nowcastNHSN` provides dispersion fits and sampling for two distributions that can sample negative integer values: the rounded normal and the Skellam distributions.
+As mentioned above, the `baselinenowcast` package samples reference date/lag realisations from the nowcast model using a combination of a point prediction and a fitted parametric distribution for residuals, which by default is a negative binomial.
+In `nowcastNHSN` we provide some alternative uncertainty models that may be more appropriate for different data characteristics.
+In particular, sometimes we see downwards revisions to NHSN data which have probability zero under a negative binomial model.
+`nowcastNHSN` provides dispersion fits and sampling for two distributions that can sample negative integer values: the rounded normal and the Skellam distributions; these operate well with the main `baselinenowcast` inference function.
 
 ### Using Normal Distribution for Uncertainty
 
