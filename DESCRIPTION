@@ -25,9 +25,12 @@ Imports:
     vctrs
 Remotes:
     cmu-delphi/epidatr,
-    epinowcast/baselinenowcast
+    epinowcast/baselinenowcast,
+    hubverse-org/hubData
 Suggests:
+    arrow,
     ggplot2,
+    hubData,
     httptest,
     knitr,
     pkgdown,

@@ -1,0 +1,257 @@
+---
+title: "Using Forecast Hub Data with nowcastNHSN"
+output:
+  rmarkdown::html_vignette:
+    code_folding: show
+vignette: >
+  %\VignetteIndexEntry{Using Forecast Hub Data with nowcastNHSN}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(nowcastNHSN)
+library(baselinenowcast)
+library(ggplot2)
+library(dplyr)
+```
+
+## Introduction
+
+The `nowcastNHSN` package supports multiple data sources for fetching vintaged NHSN reporting data.
+The [Getting Started](getting-started.html) vignette demonstrates using the Delphi Epidata API via `delphi_epidata_source()`.
+This vignette shows an alternative; pulling target timeseries data directly from forecast hub cloud-mirrored S3 buckets using `hub_data_source()` and the [hubData](https://hubverse-org.github.io/hubData/) package.
+
+This approach is useful when you want to work directly with the data as it appears in the forecast hubs, rather than going through the Epidata API.
+
+## Creating a Hub Data Source
+
+The `hub_data_source()` constructor takes the S3 bucket name (S3 is a slightly overloaded term here) and the target for filtering.
+For the COVID-19 Forecast Hub, the NHSN target is `"wk inc covid hosp"`:
+
+```{r create-source}
+# Create a hub data source for the COVID-19 Forecast Hub
+source <- hub_data_source(
+  hub_name = "covid19-forecast-hub",
+  target = "wk inc covid hosp"
+)
+```
+
+## Fetching Reporting Data
+
+The `fetch_reporting_data()` generic dispatches on the source class, so the interface is the same as with `delphi_epidata_source()`.
+The hub data uses FIPS location codes internally, but the method converts these to lowercase two-letter state abbreviations to match the common output schema.
+
+We follow the forecast hub convention of using Saturdays as the reference date for weekly data.
+The `as_of` column in the hub data (which records when each vintage was published) is likewise converted to the Saturday ending its MMWR epiweek, becoming the `report_date`.
+
+```r
+# Fetch data for California and New York
+reporting_data <- fetch_reporting_data(
+  source = source,
+  reference_dates = "*",
+  report_dates = "*",
+  locations = c("ca", "ny")
+)
+```
+
+```{r fetch-data, include = FALSE}
+# Load pre-computed fixture to avoid accessing the S3 bucket on every build. #nolint
+# To regenerate: run the code block above and saveRDS() the result to #nolint
+# vignettes/hubdata-source/reporting_data.rds #nolint
+reporting_data <- readRDS("hubdata-source/reporting_data.rds")
+```
+
+When running this live, you will see a warning about duplicate `as_of` dates:
+the hub data can have multiple observations within the same MMWR epiweek
+(e.g. published on Monday and Wednesday), which both map to the same Saturday
+`report_date`. By default, `dedup = "latest"` keeps the most recent observation
+per week. You can pass `dedup = "earliest"` to keep the first instead:
+
+```r
+# Alternative: keep the earliest observation per epiweek
+reporting_data <- fetch_reporting_data(
+  source = source,
+  reference_dates = "*",
+  report_dates = "*",
+  locations = c("ca", "ny"),
+  dedup = "earliest"
+)
+```
+
+```{r show-data}
+# View the first few rows
+head(reporting_data)
+```
+
+The returned data frame has the same columns as the Delphi source:
+
+- `reference_date`: The Saturday ending the week when events occurred
+- `report_date`: The Saturday ending the MMWR epiweek when the data was published
+- `location`: Lowercase two-letter state abbreviation (or "us" for national)
+- `count`: Reported count for that vintage
+- `signal`: The hub target name
+
+## Visualizing Reporting Delays
+
+As with the Delphi source, counts for the same reference date change across vintages.
+Let's visualize this for California:
+
+```{r plot-delays, fig.width = 7, fig.height = 5, class.source = 'fold-hide'}
+ca_data <- reporting_data |>
+  filter(location == "ca")
+
+# Pick a few report dates to compare
+all_report_dates <- sort(unique(ca_data$report_date))
+selected_report_dates <- c(
+  all_report_dates[seq(1, length(all_report_dates) - 1, length.out = 4) |> round()],
+  max(all_report_dates)
+) |>
+  unique() |>
+  sort()
+
+selected_reports <- ca_data |>
+  filter(report_date %in% selected_report_dates)
+
+ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(report_date))) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "COVID-19 Hospital Admissions in California (Hub Data)",
+    subtitle = "How reported counts change across data vintages",
+    x = "Reference Date (Week Ending)",
+    y = "Confirmed Admissions",
+    color = "Report Date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_brewer(palette = "Set1")
+```
+
+## Preparing for Nowcasting
+
+To use `baselinenowcast`, we need incremental counts (new reports at each vintage) rather than the raw counts.
+We convert using `cumulative_to_incremental()`:
+
+```{r convert-to-incremental}
+incremental_data <- cumulative_to_incremental(
+  reporting_data,
+  group_cols = c("reference_date", "location", "signal")
+)
+head(incremental_data)
+```
+
+### Converting to a Reporting Triangle
+
+We filter to California and convert to a reporting triangle with a maximum delay of 7 weeks:
+
+```{r create-triangle, message = FALSE}
+ca_incremental <- incremental_data |>
+  filter(location == "ca")
+
+nowcast_date <- max(ca_incremental$reference_date)
+ca_incremental <- ca_incremental |>
+  filter(report_date <= nowcast_date)
+
+# Convert to reporting triangle format
+reporting_triangle <- as_reporting_triangle(
+  ca_incremental,
+  delays_unit = "weeks"
+) |>
+  truncate_to_delay(max_delay = 7)
+
+print(reporting_triangle)
+```
+
+### Heatmap View of Reporting Triangle
+
+```{r plot-heatmap, fig.width = 8, fig.height = 6, class.source = 'fold-hide'}
+rt_data <- reporting_triangle |>
+  as.data.frame() |>
+  mutate(
+    report_date = reference_date + delay * 7
+  )
+
+ggplot(rt_data, aes(x = reference_date, y = report_date, fill = count)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90") +
+  labs(
+    title = "Reporting Triangle Heatmap - California COVID-19 Admissions (Hub Data)",
+    x = "Reference Date (Week Ending)",
+    y = "Report Date (Week Ending)",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+## Fitting the Baseline Nowcast
+
+With the reporting triangle ready, we fit the baseline nowcast model using `baselinenowcast` defaults:
+
+```{r fit-nowcast, message = FALSE}
+nowcast_fit <- baselinenowcast(reporting_triangle, draws = 100)
+```
+
+### Extracting and Visualizing Predictions
+
+```{r extract-predictions, message = FALSE}
+nowcast_predictions <- nowcast_fit |>
+  group_by(reference_date) |>
+  summarise(
+    median = median(pred_count),
+    q5 = quantile(pred_count, 0.05),
+    q95 = quantile(pred_count, 0.95),
+    .groups = "drop"
+  )
+
+latest_cumulative <- ca_incremental |>
+  arrange(reference_date, report_date) |>
+  group_by(reference_date) |>
+  summarise(
+    latest_count = sum(count),
+    .groups = "drop"
+  )
+
+comparison <- nowcast_predictions |>
+  left_join(latest_cumulative, by = "reference_date") |>
+  mutate(
+    reporting_completeness = (latest_count / median) * 100
+  )
+
+print(comparison |> select(reference_date, latest_count, median, q5, q95, reporting_completeness))
+```
+
+```{r plot-nowcast, fig.width = 8, fig.height = 5, class.source = 'fold-hide'}
+ggplot(comparison, aes(x = reference_date)) +
+  geom_point(aes(y = latest_count, color = "Latest Reported"), size = 3) +
+  geom_line(aes(y = latest_count, color = "Latest Reported"), linewidth = 1) +
+  geom_point(aes(y = median, color = "Nowcast (Median)"), size = 3, shape = 17) +
+  geom_line(aes(y = median, color = "Nowcast (Median)"), linewidth = 1, linetype = "dashed") +
+  geom_ribbon(aes(ymin = q5, ymax = q95, fill = "90% Prediction Interval"), alpha = 0.3) +
+  labs(
+    title = "Baseline Nowcast for California COVID-19 Admissions (Hub Data)",
+    subtitle = "Comparing latest reported counts with nowcast predictions",
+    x = "Reference Date (Week Ending)",
+    y = "Confirmed Admissions",
+    color = "Count Type",
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("Latest Reported" = "#E41A1C", "Nowcast (Median)" = "#377EB8")) +
+  scale_fill_manual(values = c("90% Prediction Interval" = "#377EB8"))
+```
+
+This plot shows the nowcast predictions adjusting for expected under-reporting in recent reference dates, using data sourced directly from the COVID-19 Forecast Hub S3 bucket.
+Note the influence of a substantial reporting delay in the middle of this time period.

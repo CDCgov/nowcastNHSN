@@ -7,7 +7,8 @@
 fetch_reporting_data(source, reference_dates, report_dates, locations, ...)
 }
 \arguments{
-\item{source}{A source object created by \code{\link[=delphi_epidata_source]{delphi_epidata_source()}}}
+\item{source}{A source object created by \code{\link[=delphi_epidata_source]{delphi_epidata_source()}} or
+\code{\link[=hub_data_source]{hub_data_source()}}}
 
 \item{reference_dates}{Date vector or epirange of reference dates}
 

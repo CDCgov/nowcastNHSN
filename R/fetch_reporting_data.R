@@ -55,7 +55,8 @@ delphi_epidata_source <- function(
 #'
 #' Generic function to fetch reporting triangle data using S3 method dispatch.
 #'
-#' @param source A source object created by [delphi_epidata_source()]
+#' @param source A source object created by [delphi_epidata_source()] or
+#'   [hub_data_source()]
 #' @param reference_dates Date vector or epirange of reference dates
 #' @param report_dates Date vector or epirange of report dates
 #' @param locations Character vector of locations
