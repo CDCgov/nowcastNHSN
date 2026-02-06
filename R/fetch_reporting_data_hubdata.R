@@ -78,8 +78,7 @@ fips_to_abbr <- function(fips) {
   result <- lookup[as.character(fips)]
   if (anyNA(result)) {
     unmatched <- unique(fips[is.na(result)])
-    cli::cli_warn("Unmatched FIPS codes dropped: {.val {unmatched}}")
-    result <- result[!is.na(result)]
+    cli::cli_warn("Unmatched FIPS codes returned as NA: {.val {unmatched}}")
   }
   unname(result)
 }
@@ -93,6 +92,18 @@ fips_to_abbr <- function(fips) {
 #' @return Filtered data frame.
 #' @noRd
 filter_hub_data <- function(data, reference_dates, report_dates, locations) {
+  for (arg in list(
+    list(val = reference_dates, name = "reference_dates"),
+    list(val = report_dates, name = "report_dates")
+  )) {
+    if (inherits(arg$val, "EpiRange")) {
+      cli::cli_abort(c(
+        "{.cls EpiRange} objects are not supported by {.fun hub_data_source}.",
+        "i" = "Pass a {.cls Date} vector or {.val *} for {.arg {arg$name}}."
+      ))
+    }
+  }
+
   if (!identical(reference_dates, "*")) {
     ref_range <- range(as.Date(reference_dates))
     data <- dplyr::filter(
@@ -236,7 +247,8 @@ fetch_reporting_data.hub_data_source <- function(
       location = fips_to_abbr(.data$location),
       count = .data$observation,
       signal = source$target
-    )
+    ) |>
+    dplyr::filter(!is.na(.data$location))
 
   # Multiple as_of dates can map to the same Saturday report_date.
   # Deduplicate, warning about how many duplicates were resolved.

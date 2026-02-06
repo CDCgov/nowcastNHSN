@@ -43,8 +43,32 @@ test_that("fips_to_abbr converts known codes", {
   expect_equal(fips_to_abbr(c("36", "06")), c("ny", "ca"))
 })
 
-test_that("fips_to_abbr warns on unknown codes", {
-  expect_warning(fips_to_abbr("99"), "Unmatched FIPS")
+test_that("fips_to_abbr warns and returns NA for unknown codes", {
+  expect_warning(result <- fips_to_abbr("99"), "Unmatched FIPS")
+  expect_equal(result, NA_character_)
+  # Length is preserved (no silent dropping)
+  expect_warning(
+    result2 <- fips_to_abbr(c("06", "99", "36")),
+    "Unmatched FIPS"
+  )
+  expect_equal(result2, c("ca", NA_character_, "ny"))
+})
+
+test_that("filter_hub_data rejects EpiRange inputs", {
+  dummy_data <- data.frame(
+    reference_date = as.Date("2024-01-06"),
+    report_date = as.Date("2024-01-13"),
+    location = "ca"
+  )
+  epi_range <- epidatr::epirange(20240101, 20240201)
+  expect_error(
+    filter_hub_data(dummy_data, epi_range, "*", "*"),
+    "EpiRange"
+  )
+  expect_error(
+    filter_hub_data(dummy_data, "*", epi_range, "*"),
+    "EpiRange"
+  )
 })
 
 test_that("fetch_reporting_data.default errors on invalid source", {
