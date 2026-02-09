@@ -226,11 +226,10 @@ fit_skellam <- function(x, mu, method = "mle") {
 #'   uncertainty_sampler = fns$uncertainty_sampler
 #' )
 #' }
-get_uncertainty_fns <- function(model_name) {
-  model_name <- match.arg(
-    model_name,
-    choices = c("negative_binomial", "normal", "skellam")
-  )
+get_uncertainty_fns <- function(
+  model_name = c("negative_binomial", "normal", "skellam")
+) {
+  model_name <- match.arg(model_name)
 
   switch(
     model_name,

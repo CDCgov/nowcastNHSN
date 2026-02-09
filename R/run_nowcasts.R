@@ -155,7 +155,7 @@ run_state_nowcasts <- function(
         i = "Install it with {.code install.packages('mirai')}"
       ))
     }
-    mirai::daemons(mirai::daemons_stop)
+    mirai::daemons(0)
     mirai::daemons(
       "default",
       dispatcher = TRUE
@@ -197,7 +197,7 @@ run_state_nowcasts <- function(
         nowcast_date = nowcast_date
       )
     )
-    mirai::daemons(mirai::daemons_stop)
+    mirai::daemons(0)
   } else {
     raw_results <- purrr::map(
       locs_to_process,
