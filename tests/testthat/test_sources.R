@@ -37,20 +37,31 @@ test_that("date_to_saturday returns correct Saturdays", {
   )
 })
 
-test_that("fips_to_abbr converts known codes", {
-  expect_equal(fips_to_abbr("06"), "ca")
-  expect_equal(fips_to_abbr("US"), "us")
-  expect_equal(fips_to_abbr(c("36", "06")), c("ny", "ca"))
+test_that("forecasttools FIPS recode works for known codes", {
+  recode <- function(x) {
+    tolower(forecasttools::us_location_recode(
+      x,
+      location_input_format = "code",
+      location_output_format = "abbr"
+    ))
+  }
+  expect_equal(recode("06"), "ca")
+  expect_equal(recode("US"), "us")
+  expect_equal(recode(c("36", "06")), c("ny", "ca"))
 })
 
-test_that("fips_to_abbr warns and returns NA for unknown codes", {
-  expect_warning(result <- fips_to_abbr("99"), "Unmatched FIPS")
+test_that("forecasttools FIPS recode returns NA for unknown codes", {
+  recode <- function(x) {
+    tolower(forecasttools::us_location_recode(
+      x,
+      location_input_format = "code",
+      location_output_format = "abbr"
+    ))
+  }
+  result <- recode("99")
   expect_equal(result, NA_character_)
   # Length is preserved (no silent dropping)
-  expect_warning(
-    result2 <- fips_to_abbr(c("06", "99", "36")),
-    "Unmatched FIPS"
-  )
+  result2 <- recode(c("06", "99", "36"))
   expect_equal(result2, c("ca", NA_character_, "ny"))
 })
 

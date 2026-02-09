@@ -10,79 +10,6 @@ date_to_saturday <- function(dates) {
   dates + (6L - wday)
 }
 
-#' Convert FIPS state codes to lowercase two-letter abbreviations
-#'
-#' @param fips Character vector of FIPS codes (e.g., "06", "US").
-#' @return Character vector of lowercase state abbreviations.
-#' @noRd
-fips_to_abbr <- function(fips) {
-  lookup <- c(
-    "US" = "us",
-    "01" = "al",
-    "02" = "ak",
-    "04" = "az",
-    "05" = "ar",
-    "06" = "ca",
-    "08" = "co",
-    "09" = "ct",
-    "10" = "de",
-    "11" = "dc",
-    "12" = "fl",
-    "13" = "ga",
-    "15" = "hi",
-    "16" = "id",
-    "17" = "il",
-    "18" = "in",
-    "19" = "ia",
-    "20" = "ks",
-    "21" = "ky",
-    "22" = "la",
-    "23" = "me",
-    "24" = "md",
-    "25" = "ma",
-    "26" = "mi",
-    "27" = "mn",
-    "28" = "ms",
-    "29" = "mo",
-    "30" = "mt",
-    "31" = "ne",
-    "32" = "nv",
-    "33" = "nh",
-    "34" = "nj",
-    "35" = "nm",
-    "36" = "ny",
-    "37" = "nc",
-    "38" = "nd",
-    "39" = "oh",
-    "40" = "ok",
-    "41" = "or",
-    "42" = "pa",
-    "44" = "ri",
-    "45" = "sc",
-    "46" = "sd",
-    "47" = "tn",
-    "48" = "tx",
-    "49" = "ut",
-    "50" = "vt",
-    "51" = "va",
-    "53" = "wa",
-    "54" = "wv",
-    "55" = "wi",
-    "56" = "wy",
-    "60" = "as",
-    "66" = "gu",
-    "69" = "mp",
-    "72" = "pr",
-    "78" = "vi"
-  )
-  result <- lookup[as.character(fips)]
-  if (anyNA(result)) {
-    unmatched <- unique(fips[is.na(result)])
-    cli::cli_warn("Unmatched FIPS codes returned as NA: {.val {unmatched}}")
-  }
-  unname(result)
-}
-
 #' Filter hub data by reference dates, report dates, and locations
 #'
 #' @param data A data frame with columns reference_date, report_date, location.
@@ -105,20 +32,16 @@ filter_hub_data <- function(data, reference_dates, report_dates, locations) {
   }
 
   if (!identical(reference_dates, "*")) {
-    ref_range <- range(as.Date(reference_dates))
     data <- dplyr::filter(
       data,
-      .data$reference_date >= ref_range[1],
-      .data$reference_date <= ref_range[2]
+      .data$reference_date %in% as.Date(reference_dates)
     )
   }
 
   if (!identical(report_dates, "*")) {
-    rep_range <- range(as.Date(report_dates))
     data <- dplyr::filter(
       data,
-      .data$report_date >= rep_range[1],
-      .data$report_date <= rep_range[2]
+      .data$report_date %in% as.Date(report_dates)
     )
   }
 
@@ -212,8 +135,8 @@ hub_data_source <- function(
 #' @export
 fetch_reporting_data.hub_data_source <- function(
   source,
-  reference_dates,
-  report_dates,
+  reference_dates = "*",
+  report_dates = "*",
   locations = "*",
   dedup = c("latest", "earliest"),
   ...
@@ -243,8 +166,12 @@ fetch_reporting_data.hub_data_source <- function(
     dplyr::transmute(
       reference_date = as.Date(.data$date),
       as_of = as.Date(.data$as_of),
-      report_date = date_to_saturday(.data$as_of),
-      location = fips_to_abbr(.data$location),
+      report_date = forecasttools::ceiling_mmwr_epiweek(.data$as_of),
+      location = tolower(forecasttools::us_location_recode(
+        .data$location,
+        location_input_format = "code",
+        location_output_format = "abbr"
+      )),
       count = .data$observation,
       signal = source$target
     ) |>

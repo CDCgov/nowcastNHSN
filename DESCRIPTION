@@ -19,6 +19,7 @@ Imports:
     cli,
     dplyr,
     epidatr,
+    forecasttools (>= 0.1.7),
     lubridate,
     purrr,
     rlang,
@@ -26,7 +27,8 @@ Imports:
 Remotes:
     cmu-delphi/epidatr,
     epinowcast/baselinenowcast,
-    hubverse-org/hubData
+    hubverse-org/hubData,
+    cdcgov/forecasttools
 Suggests:
     arrow,
     ggplot2,
