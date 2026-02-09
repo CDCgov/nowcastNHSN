@@ -141,7 +141,7 @@ ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(re
 ```
 
 This plot shows how the same reference dates can have different reported counts depending on when the data was reported.
-Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports, but not that downward revisions also occur.
+Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports, but note that downward revisions also occur.
 
 Note that `reporting_data` are the total reported counts at various reference dates and report dates.
 For nowcasting with `baselinenowcast`, we need incremental counts (new reports at each report date).

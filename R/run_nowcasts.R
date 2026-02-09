@@ -28,7 +28,7 @@
 #'   [cumulative_to_incremental()]. Set to `FALSE` if the data is already
 #'   incremental.
 #' @param parallel Logical. Whether to use parallel processing via
-#'   `furrr::future_map()`. Default is `FALSE`.
+#'   `purrr::in_parallel()`. Requires the `mirai` package. Default is `FALSE`.
 #'
 #' @returns A data frame with columns:
 #'   - `reference_date`: The reference date being nowcasted
@@ -42,6 +42,7 @@
 #'
 #' @importFrom purrr map list_rbind
 #' @importFrom dplyr filter mutate
+#' @importFrom rlang .data .env
 #' @importFrom cli cli_progress_bar cli_progress_update cli_progress_done
 #'   cli_alert_success cli_alert_warning cli_alert_info
 #' @importFrom baselinenowcast as_reporting_triangle truncate_to_delay
@@ -146,50 +147,68 @@ run_state_nowcasts <- function(
     nowcast_date <- max(data$report_date)
   }
 
-  # Choose mapping function based on parallel setting
+  # Set up parallel if requested
   if (parallel) {
-    if (!requireNamespace("furrr", quietly = TRUE)) {
+    if (!requireNamespace("mirai", quietly = TRUE)) {
       cli::cli_abort(c(
-        "Package {.pkg furrr} is required for parallel processing.",
-        i = "Install it with {.code install.packages('furrr')}"
+        "Package {.pkg mirai} is required for parallel processing.",
+        i = "Install it with {.code install.packages('mirai')}"
       ))
     }
-    map_fn <- furrr::future_map
-    cli::cli_alert_info("Using parallel processing via {.pkg furrr}")
-  } else {
-    map_fn <- purrr::map
+    mirai::daemons(mirai::daemons_stop)
+    mirai::daemons(
+      "default",
+      dispatcher = TRUE
+    )
+    cli::cli_alert_info("Using parallel processing via {.pkg mirai}")
+  }
+
+  # Define the worker function
+  nowcast_one <- function(loc) {
+    tryCatch(
+      {
+        loc_config <- get_config_for_loc(loc)
+        run_single_nowcast(
+          data = incremental_data,
+          location = loc,
+          config = loc_config,
+          nowcast_date = nowcast_date,
+          cumulative = FALSE # Already converted above
+        )
+      },
+      error = function(e) {
+        cli::cli_alert_warning(
+          "Failed to process {.val {loc}}: {conditionMessage(e)}"
+        )
+        NULL
+      }
+    )
   }
 
   # Process each location
-  failed_locations <- character(0)
-
-  results <- map_fn(
-    locs_to_process,
-    function(loc) {
-      tryCatch(
-        {
-          loc_config <- get_config_for_loc(loc)
-          run_single_nowcast(
-            data = incremental_data,
-            location = loc,
-            config = loc_config,
-            nowcast_date = nowcast_date,
-            cumulative = FALSE # Already converted above
-          )
-        },
-        error = function(e) {
-          cli::cli_alert_warning(
-            "Failed to process {.val {loc}}: {conditionMessage(e)}"
-          )
-          # Store failure but return NULL
-          failed_locations <<- c(failed_locations, loc)
-          NULL
-        }
+  if (parallel) {
+    raw_results <- purrr::map(
+      locs_to_process,
+      purrr::in_parallel(
+        \(loc) nowcast_one(loc),
+        nowcast_one = nowcast_one,
+        get_config_for_loc = get_config_for_loc,
+        incremental_data = incremental_data,
+        nowcast_date = nowcast_date
       )
-    },
-    .progress = !parallel
-  ) |>
-    purrr::list_rbind()
+    )
+    mirai::daemons(mirai::daemons_stop)
+  } else {
+    raw_results <- purrr::map(
+      locs_to_process,
+      nowcast_one,
+      .progress = TRUE
+    )
+  }
+
+  # Identify failures by checking for NULLs
+  failed_locations <- locs_to_process[purrr::map_lgl(raw_results, is.null)]
+  results <- purrr::list_rbind(raw_results)
 
   # Attach failed locations as attribute
   attr(results, "failed_locations") <- failed_locations
@@ -225,7 +244,6 @@ run_state_nowcasts <- function(
 #' @param config A `nowcast_config` object.
 #' @param nowcast_date Date. The nowcast date.
 #' @param cumulative Logical. If `TRUE` (default), converts cumulative counts
-
 #'   to incremental. Set to `FALSE` if data is already incremental.
 #'
 #' @returns A data frame of nowcast results for the single location.
@@ -254,7 +272,7 @@ run_single_nowcast <- function(
   # Filter to location
   loc_data <- data |>
     dplyr::filter(.data$location == .env$location) |>
-    dplyr::filter(.data$report_date <= nowcast_date)
+    dplyr::filter(.data$report_date <= .env$nowcast_date)
 
   if (nrow(loc_data) == 0) {
     cli::cli_abort("No data available for location {.val {location}}")
@@ -285,7 +303,7 @@ run_single_nowcast <- function(
 
   # Add location column
   nowcast_result <- nowcast_result |>
-    dplyr::mutate(location = location)
+    dplyr::mutate(location = .env$location)
 
   nowcast_result
 }

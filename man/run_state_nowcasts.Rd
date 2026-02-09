@@ -40,7 +40,7 @@ and will be converted to incremental counts using
 incremental.}
 
 \item{parallel}{Logical. Whether to use parallel processing via
-\code{furrr::future_map()}. Default is \code{FALSE}.}
+\code{purrr::in_parallel()}. Requires the \code{mirai} package. Default is \code{FALSE}.}
 }
 \value{
 A data frame with columns:

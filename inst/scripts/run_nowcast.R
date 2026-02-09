@@ -12,137 +12,111 @@
 #
 
 # Parse command line arguments
-args <- commandArgs(trailingOnly = TRUE)
-
-# Help message
-if ("--help" %in% args || "-h" %in% args) {
-  cat(
-    "
-NHSN State-Level Nowcast Script
-
-Usage:
-  Rscript run_nowcast.R [options]
-
-Options:
-  --test                    Run in test mode with minimal settings.
-                            Uses: ca, 10 draws, max_delay=4.
-                            Overrides other config options.
-
-  --location <loc>          Location(s) to process. Use 'all' for all states,
-                            or comma-separated codes (e.g., 'ca,ny,tx').
-                            Default: all
-
-  --target <target>         Disease target: 'covid', 'flu', or 'rsv'.
-                            Default: covid
-
-  --max-delay <n>           Maximum delay in weeks. Default: 7
-
-  --scale-factor <n>        Scale factor for training volume. Default: 3
-
-  --prop-delay <n>          Proportion of data for delay estimation.
-                            Default: 0.5
-
-  --uncertainty-model <m>   Uncertainty model: 'negative_binomial', 'normal',
-                            or 'skellam'. Default: negative_binomial
-
-  --draws <n>               Number of posterior draws. Default: 1000
-
-  --output-dir <path>       Output directory for parquet files.
-                            Default: output/nowcasts
-
-  --parallel                Enable parallel processing via furrr.
-
-  --help, -h                Show this help message.
-
-Examples:
-  # Quick test run
-  Rscript run_nowcast.R --test
-
-  # Run all states with defaults
-  Rscript run_nowcast.R --location all --output-dir output/nowcasts
-
-  # Run single state for Azure task
-  Rscript run_nowcast.R --location ca --output-dir output/nowcasts
-
-  # Run with custom parameters
-  Rscript run_nowcast.R --location ca,ny --uncertainty-model skellam --draws 500
-
-"
+parser <- argparse::ArgumentParser(
+  description = "NHSN State-Level Nowcast Script"
+)
+parser$add_argument(
+  "--test",
+  action = "store_true",
+  default = FALSE,
+  help = paste(
+    "Run in test mode with minimal settings.",
+    "Uses: ca, 10 draws, max_delay=4. Overrides other config options."
   )
-  quit(status = 0)
-}
+)
+parser$add_argument(
+  "--location",
+  default = "all",
+  help = paste(
+    "Location(s) to process. Use 'all' for all states,",
+    "or comma-separated codes (e.g., 'ca,ny,tx'). [default: %(default)s]"
+  )
+)
+parser$add_argument(
+  "--target",
+  default = "covid",
+  help = "Disease target: 'covid', 'flu', or 'rsv'. [default: %(default)s]"
+)
+parser$add_argument(
+  "--max-delay",
+  type = "integer",
+  default = 7L,
+  help = "Maximum delay in weeks. [default: %(default)s]"
+)
+parser$add_argument(
+  "--scale-factor",
+  type = "double",
+  default = 3.0,
+  help = "Scale factor for training volume. [default: %(default)s]"
+)
+parser$add_argument(
+  "--prop-delay",
+  type = "double",
+  default = 0.5,
+  help = "Proportion of data for delay estimation. [default: %(default)s]"
+)
+parser$add_argument(
+  "--uncertainty-model",
+  default = "negative_binomial",
+  help = paste(
+    "Uncertainty model: 'negative_binomial', 'normal',",
+    "or 'skellam'. [default: %(default)s]"
+  )
+)
+parser$add_argument(
+  "--draws",
+  type = "integer",
+  default = 1000L,
+  help = "Number of posterior draws. [default: %(default)s]"
+)
+parser$add_argument(
+  "--output-dir",
+  default = "output/nowcasts",
+  help = "Output directory for parquet files. [default: %(default)s]"
+)
+parser$add_argument(
+  "--parallel",
+  action = "store_true",
+  default = FALSE,
+  help = "Enable parallel processing via mirai."
+)
 
-# Parse argument function
-parse_arg <- function(args, flag, default = NULL) {
-  idx <- which(args == flag)
-  if (length(idx) == 0) {
-    return(default)
-  }
-  if (idx + 1 > length(args)) {
-    stop(sprintf("Missing value for %s", flag))
-  }
-  args[idx + 1]
-}
-
-# Parse flag function (boolean)
-parse_flag <- function(args, flag) {
-  flag %in% args
-}
-
-# Check for test mode first
-test_mode <- parse_flag(args, "--test")
+args <- parser$parse_args()
 
 # Load package
 library(nowcastNHSN)
 
-if (test_mode) {
+if (args$test) {
   # Test mode: use minimal settings
   cli::cli_alert_info("Running in TEST MODE")
-  target <- parse_arg(args, "--target", "covid")
-  output_dir <- parse_arg(args, "--output-dir", NULL)
+  target <- args$target
+  output_dir <- args$output_dir
   config <- nowcast_config_test(output_dir = output_dir)
   locations <- config$location # Single location from test config
   parallel <- FALSE
 } else {
-  # Normal mode: parse all arguments
-  location_arg <- parse_arg(args, "--location", "all")
-  target <- parse_arg(args, "--target", "covid")
-  max_delay <- as.integer(parse_arg(args, "--max-delay", "7"))
-  scale_factor <- as.numeric(parse_arg(args, "--scale-factor", "3"))
-  prop_delay <- as.numeric(parse_arg(args, "--prop-delay", "0.5"))
-  uncertainty_model <- parse_arg(
-    args,
-    "--uncertainty-model",
-    "negative_binomial"
-  )
-  draws <- as.integer(parse_arg(args, "--draws", "1000"))
-  output_dir <- parse_arg(args, "--output-dir", "output/nowcasts")
-  parallel <- parse_flag(args, "--parallel")
+  # Normal mode
+  target <- args$target
+  output_dir <- args$output_dir
+  parallel <- args$parallel
 
   # Parse locations
-  if (location_arg == "all") {
+  if (args$location == "all") {
     locations <- "all"
   } else {
-    locations <- strsplit(location_arg, ",")[[1]]
-    locations <- trimws(locations)
+    locations <- trimws(strsplit(args$location, ",")[[1]])
   }
 
-  # Set up parallel if requested
-  if (parallel) {
-    if (!requireNamespace("future", quietly = TRUE)) {
-      stop("Package 'future' required for parallel processing")
-    }
-    future::plan(future::multisession)
-    cli::cli_alert_info("Parallel processing enabled")
-  }
+  # Note: parallel processing is handled internally by run_state_nowcasts()
+  # via purrr::in_parallel() and mirai
 
   # Create configuration
   config <- nowcast_config(
-    max_delay = max_delay,
-    scale_factor = scale_factor,
-    prop_delay = prop_delay,
-    uncertainty_model = uncertainty_model,
-    draws = draws,
+    max_delay = args$max_delay,
+    scale_factor = args$scale_factor,
+    prop_delay = args$prop_delay,
+    uncertainty_model = args$uncertainty_model,
+    draws = args$draws,
     output_dir = output_dir
   )
 }
@@ -161,19 +135,11 @@ source <- delphi_epidata_source(
 # Get data from last 30 weeks for reference dates
 # and all available report dates
 today <- Sys.Date()
-current_epiweek <- lubridate::epiweek(today)
-current_year <- lubridate::epiyear(today)
-
-# Convert to YYYYWW format
-end_epiweek <- current_year * 100 + current_epiweek
-# Go back ~30 weeks
-start_year <- if (current_epiweek > 30) current_year else current_year - 1
-start_week <- if (current_epiweek > 30) {
-  current_epiweek - 30
-} else {
-  52 - (30 - current_epiweek)
+date_to_yyyyww <- function(x) {
+  lubridate::epiyear(x) * 100 + lubridate::epiweek(x)
 }
-start_epiweek <- start_year * 100 + start_week
+end_epiweek <- date_to_yyyyww(today)
+start_epiweek <- date_to_yyyyww(today - lubridate::weeks(30))
 
 reference_dates <- epidatr::epirange(start_epiweek, end_epiweek)
 report_dates <- "*"

@@ -30,12 +30,13 @@ Remotes:
     hubverse-org/hubData,
     cdcgov/forecasttools
 Suggests:
+    argparse,
     arrow,
-    furrr,
     ggplot2,
     hubData,
     httptest,
     knitr,
+    mirai,
     pkgdown,
     rmarkdown,
     testthat (>= 3.0.0),
