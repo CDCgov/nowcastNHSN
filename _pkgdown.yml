@@ -22,6 +22,8 @@ navbar:
       menu:
       - text: Getting Started
         href: articles/getting-started.html
+      - text: Data Sources
+        href: articles/hubdata-source.html
 
 reference:
 - title: Data Sources

@@ -49,3 +49,39 @@ test_that("fetch_reporting_data works with epidatr_source", {
   # Epidata may return additional report dates beyond what was requested
   expect_true(any(result$report_date >= min(report_dates)))
 })
+
+# Note: arrow S3 requests go through the C++ HTTP layer, so neither httptest
+# nor httptest2 can intercept them. Using skip_if_offline() + skip_if_not_installed().
+test_that("fetch_reporting_data works with hub_data_source", {
+  skip_if_offline()
+  skip_if_not_installed("hubData")
+  skip_if_not_installed("arrow")
+
+  src <- hub_data_source()
+
+  result <- fetch_reporting_data(
+    source = src,
+    reference_dates = reference_dates,
+    report_dates = report_dates,
+    locations = loc
+  )
+
+  # Check structure
+  expect_s3_class(result, "data.frame")
+  expect_true(nrow(result) > 0)
+  expect_true(all(
+    c("reference_date", "report_date", "location", "count", "signal") %in%
+      names(result)
+  ))
+
+  # All dates should be Saturdays
+  expect_true(all(weekdays(result$reference_date) == "Saturday"))
+  expect_true(all(weekdays(result$report_date) == "Saturday"))
+
+  # Location should be lowercase abbreviation
+  expect_true(all(result$location == "ca"))
+
+  # Check that we got data within the requested ranges
+  expect_true(any(result$reference_date >= min(reference_dates)))
+  expect_true(any(result$report_date >= min(report_dates)))
+})
