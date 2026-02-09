@@ -31,6 +31,7 @@ Remotes:
     cdcgov/forecasttools
 Suggests:
     arrow,
+    furrr,
     ggplot2,
     hubData,
     httptest,
@@ -38,6 +39,7 @@ Suggests:
     pkgdown,
     rmarkdown,
     testthat (>= 3.0.0),
+    tidyr,
     withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
