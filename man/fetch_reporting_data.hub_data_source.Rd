@@ -6,8 +6,8 @@
 \usage{
 \method{fetch_reporting_data}{hub_data_source}(
   source,
-  reference_dates,
-  report_dates,
+  reference_dates = "*",
+  report_dates = "*",
   locations = "*",
   dedup = c("latest", "earliest"),
   ...
