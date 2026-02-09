@@ -193,3 +193,61 @@ fit_skellam <- function(x, mu, method = "mle") {
 
   return(variance)
 }
+
+#' Get uncertainty model and sampler functions by name
+#'
+#' @description
+#' Maps a named uncertainty model to the corresponding fit and sample functions
+#' for use with `baselinenowcast::baselinenowcast()`.
+#'
+#' @param model_name Character. One of `"negative_binomial"`, `"normal"`, or
+#'   `"skellam"`.
+#'
+#' @returns A named list with two elements:
+#'   - `uncertainty_model`: A function for fitting uncertainty parameters
+#'   - `uncertainty_sampler`: A function for sampling from the fitted model
+#'
+#' @importFrom baselinenowcast fit_by_horizon sample_nb
+#' @importFrom cli cli_abort
+#' @export
+#'
+#' @examples
+#' # Get normal distribution functions
+#' fns <- get_uncertainty_fns("normal")
+#' fns$uncertainty_model
+#' fns$uncertainty_sampler
+#'
+#' # Use with baselinenowcast
+#' \dontrun{
+#' fns <- get_uncertainty_fns("skellam")
+#' nowcast <- baselinenowcast::baselinenowcast(
+#'   reporting_triangle,
+#'   uncertainty_model = fns$uncertainty_model,
+#'   uncertainty_sampler = fns$uncertainty_sampler
+#' )
+#' }
+get_uncertainty_fns <- function(
+  model_name = c("negative_binomial", "normal", "skellam")
+) {
+  model_name <- match.arg(model_name)
+
+  switch(
+    model_name,
+    negative_binomial = list(
+      uncertainty_model = baselinenowcast::fit_by_horizon,
+      uncertainty_sampler = baselinenowcast::sample_nb
+    ),
+    normal = list(
+      uncertainty_model = function(obs, pred) {
+        baselinenowcast::fit_by_horizon(obs, pred, fit_model = fit_normal)
+      },
+      uncertainty_sampler = sample_normal
+    ),
+    skellam = list(
+      uncertainty_model = function(obs, pred) {
+        baselinenowcast::fit_by_horizon(obs, pred, fit_model = fit_skellam)
+      },
+      uncertainty_sampler = sample_skellam
+    )
+  )
+}

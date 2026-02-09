@@ -141,7 +141,7 @@ ggplot(selected_reports, aes(x = reference_date, y = count, color = as.factor(re
 ```
 
 This plot shows how the same reference dates can have different reported counts depending on when the data was reported.
-Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports, but not that downward revisions also occur.
+Counts for reference dates that are recent to their report date may be incomplete, and typically get revised upward in subsequent reports, but note that downward revisions also occur.
 
 Note that `reporting_data` are the total reported counts at various reference dates and report dates.
 For nowcasting with `baselinenowcast`, we need incremental counts (new reports at each report date).
@@ -247,30 +247,39 @@ nowcast_predictions <- nowcast_fit |>
   group_by(reference_date) |>
   summarise(
     median = median(pred_count),
-    q5 = quantile(pred_count, 0.05),
+    q05 = quantile(pred_count, 0.05),
     q95 = quantile(pred_count, 0.95),
     .groups = "drop"
   )
 
 # The nowcast predicts the FINAL CUMULATIVE count for each reference date.
-# We need to compute cumulative totals from the incremental data for comparison.
-latest_cumulative <- ca_data |>
-  arrange(reference_date, report_date) |>
+# Get the latest reported cumulative count directly from the original data,
+# filtered to the same nowcast_date used for the triangle.
+latest_cumulative <- reporting_data |>
+  filter(location == "ca", report_date <= nowcast_date) |>
   group_by(reference_date) |>
-  summarise(
-    # Sum all incremental counts to get cumulative total as of latest report
-    latest_count = sum(count),
-    .groups = "drop"
-  )
+  filter(report_date == max(report_date)) |>
+  ungroup() |>
+  select(reference_date, latest_count = count)
+
+# Also get the "final" counts from the most recent report date available
+# (after the nowcast date) to evaluate nowcast performance
+final_cumulative <- reporting_data |>
+  filter(location == "ca") |>
+  group_by(reference_date) |>
+  filter(report_date == max(report_date)) |>
+  ungroup() |>
+  select(reference_date, final_count = count)
 
 comparison <- nowcast_predictions |>
   left_join(latest_cumulative, by = "reference_date") |>
+  left_join(final_cumulative, by = "reference_date") |>
   mutate(
     reporting_completeness = (latest_count / median) * 100
   )
 
 # View the comparison
-print(comparison |> select(reference_date, latest_count, median, q5, q95, reporting_completeness))
+print(comparison |> select(reference_date, latest_count, median, q05, q95, final_count, reporting_completeness))
 ```
 
 ### Visualizing Nowcast Results
@@ -279,17 +288,20 @@ We can visualize the nowcast results by plotting the predicted final counts alon
 
 ```{r plot-nowcast, fig.width = 8, fig.height = 5, class.source = 'fold-hide'}
 ggplot(comparison, aes(x = reference_date)) +
-  # Latest reported counts
-  geom_point(aes(y = latest_count, color = "Latest Reported"), size = 3) +
-  geom_line(aes(y = latest_count, color = "Latest Reported"), linewidth = 1) +
+  # Nowcast uncertainty (draw first so it's behind)
+  geom_ribbon(aes(ymin = q05, ymax = q95, fill = "90% Prediction Interval"), alpha = 0.3) +
+  # Latest reported counts (at nowcast time)
+  geom_point(aes(y = latest_count, color = "At Nowcast Time"), size = 3) +
+  geom_line(aes(y = latest_count, color = "At Nowcast Time"), linewidth = 1) +
   # Nowcast median
   geom_point(aes(y = median, color = "Nowcast (Median)"), size = 3, shape = 17) +
   geom_line(aes(y = median, color = "Nowcast (Median)"), linewidth = 1, linetype = "dashed") +
-  # Nowcast uncertainty
-  geom_ribbon(aes(ymin = q5, ymax = q95, fill = "90% Prediction Interval"), alpha = 0.3) +
+  # Final reported counts (truth)
+  geom_point(aes(y = final_count, color = "Final Reported"), size = 3, shape = 15) +
+  geom_line(aes(y = final_count, color = "Final Reported"), linewidth = 1, linetype = "dotted") +
   labs(
     title = "Baseline Nowcast for California COVID-19 Admissions",
-    subtitle = "Comparing latest reported counts with nowcast predictions",
+    subtitle = "Comparing nowcast predictions with counts at nowcast time and final reported values",
     x = "Reference Date (Week Ending)",
     y = "Confirmed Admissions",
     color = "Count Type",
@@ -297,12 +309,21 @@ ggplot(comparison, aes(x = reference_date)) +
   ) +
   theme_minimal() +
   theme(legend.position = "bottom") +
-  scale_color_manual(values = c("Latest Reported" = "#E41A1C", "Nowcast (Median)" = "#377EB8")) +
+  scale_color_manual(values = c(
+    "At Nowcast Time" = "#E41A1C",
+    "Nowcast (Median)" = "#377EB8",
+    "Final Reported" = "#4DAF4A"
+  )) +
   scale_fill_manual(values = c("90% Prediction Interval" = "#377EB8"))
 ```
 
-This plot shows that for recent reference dates, the nowcast predictions (dashed line with triangles) are higher than the latest reported counts (solid line with circles), indicating expected under-reporting.
-The shaded area represents the 90% prediction interval, showing the uncertainty in the nowcast.
+This plot shows three series:
+
+- **At Nowcast Time** (red circles): The incomplete counts available when the nowcast was made
+- **Nowcast (Median)** (blue triangles): The model's prediction of final counts
+- **Final Reported** (green squares): The actual final counts from the latest available data
+
+For recent reference dates, the nowcast predictions should be closer to the final reported values than the incomplete counts at nowcast time, demonstrating the value of nowcasting.
 
 ### Understanding Reporting Completeness
 
@@ -353,7 +374,7 @@ normal_summary <- nowcast_normal |>
   group_by(reference_date) |>
   summarise(
     median = median(pred_count),
-    q5 = quantile(pred_count, 0.05),
+    q05 = quantile(pred_count, 0.05),
     q95 = quantile(pred_count, 0.95),
     .groups = "drop"
   ) |>
@@ -383,7 +404,7 @@ skellam_summary <- nowcast_skellam |>
   group_by(reference_date) |>
   summarise(
     median = median(pred_count),
-    q5 = quantile(pred_count, 0.05),
+    q05 = quantile(pred_count, 0.05),
     q95 = quantile(pred_count, 0.95),
     .groups = "drop"
   ) |>
@@ -418,12 +439,12 @@ ggplot(all_summaries, aes(x = reference_date)) +
   # Nowcast uncertainty ribbons
   geom_ribbon(
     data = normal_summary,
-    aes(ymin = q5, ymax = q95, fill = "Normal"),
+    aes(ymin = q05, ymax = q95, fill = "Normal"),
     alpha = 0.3
   ) +
   geom_ribbon(
     data = skellam_summary,
-    aes(ymin = q5, ymax = q95, fill = "Skellam"),
+    aes(ymin = q05, ymax = q95, fill = "Skellam"),
     alpha = 0.3
   ) +
   # Nowcast medians (use normal_summary since medians are the same)

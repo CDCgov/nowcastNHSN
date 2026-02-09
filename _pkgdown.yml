@@ -11,9 +11,12 @@ home:
 
 navbar:
   structure:
-    left:  [intro, reference, articles, news]
+    left:  [intro, get-started, reference, articles, news]
     right: [github]
   components:
+    get-started:
+      text: Get Started
+      href: articles/getting-started.html
     reference:
       text: Reference
       href: reference/index.html
@@ -24,6 +27,8 @@ navbar:
         href: articles/getting-started.html
       - text: Data Sources
         href: articles/hubdata-source.html
+      - text: State-Level Nowcasts
+        href: articles/state-nowcasts.html
 
 reference:
 - title: Data Sources
@@ -35,6 +40,23 @@ reference:
   desc: Functions for fetching NHSN reporting data
   contents:
   - has_concept("data_fetching")
+
+- title: Nowcasting
+  desc: Functions for running nowcasts and configuring pipeline
+  contents:
+  - nowcast_config
+  - nowcast_config_test
+  - print.nowcast_config
+  - run_state_nowcasts
+  - run_single_nowcast
+  - get_uncertainty_fns
+
+- title: Output
+  desc: Functions for summarizing and storing nowcast results
+  contents:
+  - summarize_nowcast
+  - write_nowcast_parquet
+  - read_nowcast_parquet
 
 - title: Date Utilities
   desc: Utilities for working with epidemiological weeks and Saturday conventions
@@ -50,9 +72,3 @@ reference:
   desc: Data transformation utilities
   contents:
   - has_concept("data_processing")
-
-authors:
-  Sam Brand:
-    href: https://github.com/seabbs
-  Dylan Morris:
-    href: https://github.com/dylanhmorris
