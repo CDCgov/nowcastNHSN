@@ -85,3 +85,40 @@ test_that("fetch_reporting_data works with hub_data_source", {
   expect_true(any(result$reference_date >= min(reference_dates)))
   expect_true(any(result$report_date >= min(report_dates)))
 })
+
+test_that("fetch_reporting_data works with flu and rsv hub targets", {
+  skip_if_offline()
+  skip_if_not_installed("hubData")
+  skip_if_not_installed("arrow")
+
+  sources <- list(
+    hub_data_source(
+      hub_name = "cdcepi-flusight-forecast-hub",
+      target = "wk inc flu hosp"
+    ),
+    hub_data_source(
+      hub_name = "rsv-forecast-hub",
+      target = "wk inc rsv hosp"
+    )
+  )
+
+  purrr::walk(sources, function(src) {
+    result <- fetch_reporting_data(
+      source = src,
+      reference_dates = reference_dates,
+      report_dates = report_dates,
+      locations = loc
+    )
+
+    expect_s3_class(result, "data.frame")
+    expect_true(nrow(result) > 0)
+    expect_true(all(
+      c("reference_date", "report_date", "location", "count", "signal") %in%
+        names(result)
+    ))
+    expect_true(all(weekdays(result$reference_date) == "Saturday"))
+    expect_true(all(weekdays(result$report_date) == "Saturday"))
+    expect_true(all(result$location == loc))
+    expect_true(all(result$signal == src$target))
+  })
+})
