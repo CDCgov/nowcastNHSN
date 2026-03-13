@@ -92,17 +92,19 @@ test_that("fetch_reporting_data works with flu and rsv hub targets", {
   skip_if_not_installed("arrow")
 
   sources <- list(
-    hub_data_source(
+    flu = hub_data_source(
       hub_name = "cdcepi-flusight-forecast-hub",
       target = "wk inc flu hosp"
     ),
-    hub_data_source(
+    rsv = hub_data_source(
       hub_name = "rsv-forecast-hub",
       target = "wk inc rsv hosp"
     )
   )
 
-  purrr::walk(sources, function(src) {
+  purrr::iwalk(sources, function(src, source_name) {
+    info <- sprintf("%s hub target %s", source_name, src$target)
+
     result <- fetch_reporting_data(
       source = src,
       reference_dates = reference_dates,
@@ -110,15 +112,15 @@ test_that("fetch_reporting_data works with flu and rsv hub targets", {
       locations = loc
     )
 
-    expect_s3_class(result, "data.frame")
-    expect_true(nrow(result) > 0)
+    expect_s3_class(result, "data.frame", info = info)
+    expect_true(nrow(result) > 0, info = info)
     expect_true(all(
       c("reference_date", "report_date", "location", "count", "signal") %in%
         names(result)
-    ))
-    expect_true(all(weekdays(result$reference_date) == "Saturday"))
-    expect_true(all(weekdays(result$report_date) == "Saturday"))
-    expect_true(all(result$location == loc))
-    expect_true(all(result$signal == src$target))
+    ), info = info)
+    expect_true(all(weekdays(result$reference_date) == "Saturday"), info = info)
+    expect_true(all(weekdays(result$report_date) == "Saturday"), info = info)
+    expect_true(all(result$location == loc), info = info)
+    expect_true(all(result$signal == src$target), info = info)
   })
 })
