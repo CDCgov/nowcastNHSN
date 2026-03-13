@@ -6,6 +6,21 @@ reference_dates <- seq(
 )
 loc <- "ca"
 
+muffle_known_hub_dedup_warning <- function(expr) {
+  withCallingHandlers(
+    expr,
+    warning = function(w) {
+      if (grepl(
+        "Multiple as_of dates mapped to the same report_date",
+        conditionMessage(w),
+        fixed = TRUE
+      )) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+}
+
 test_that("test fixture dates are all Saturdays", {
   # All dates should be Saturdays (day 6) per MMWR epiweek convention
   expect_true(all(weekdays(report_dates) == "Saturday"))
@@ -18,6 +33,7 @@ test_that("test fixture dates are all Saturdays", {
 # package could theoretically work, but epidatr also has its own caching layer that
 # makes mocking complex. Using skip_if_offline() is the recommended approach.
 test_that("fetch_reporting_data works with epidatr_source", {
+  skip_if_not_installed("curl")
   skip_if_offline()
 
   # Create epidatr source
@@ -53,18 +69,19 @@ test_that("fetch_reporting_data works with epidatr_source", {
 # Note: arrow S3 requests go through the C++ HTTP layer, so neither httptest
 # nor httptest2 can intercept them. Using skip_if_offline() + skip_if_not_installed().
 test_that("fetch_reporting_data works with hub_data_source", {
+  skip_if_not_installed("curl")
   skip_if_offline()
   skip_if_not_installed("hubData")
   skip_if_not_installed("arrow")
 
   src <- hub_data_source()
 
-  result <- fetch_reporting_data(
+  result <- muffle_known_hub_dedup_warning(fetch_reporting_data(
     source = src,
     reference_dates = reference_dates,
     report_dates = report_dates,
     locations = loc
-  )
+  ))
 
   # Check structure
   expect_s3_class(result, "data.frame")
@@ -87,6 +104,7 @@ test_that("fetch_reporting_data works with hub_data_source", {
 })
 
 test_that("fetch_reporting_data works with flu and rsv hub targets", {
+  skip_if_not_installed("curl")
   skip_if_offline()
   skip_if_not_installed("hubData")
   skip_if_not_installed("arrow")
@@ -105,14 +123,14 @@ test_that("fetch_reporting_data works with flu and rsv hub targets", {
   purrr::iwalk(sources, function(src, source_name) {
     info <- sprintf("%s hub target %s", source_name, src$target)
 
-    result <- fetch_reporting_data(
+    result <- muffle_known_hub_dedup_warning(fetch_reporting_data(
       source = src,
       reference_dates = reference_dates,
       report_dates = report_dates,
       locations = loc
-    )
+    ))
 
-    expect_s3_class(result, "data.frame", info = info)
+    expect_s3_class(result, "data.frame")
     expect_true(nrow(result) > 0, info = info)
     expect_true(all(
       c("reference_date", "report_date", "location", "count", "signal") %in%

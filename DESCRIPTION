@@ -32,6 +32,7 @@ Remotes:
 Suggests:
     argparse,
     arrow,
+    curl,
     ggplot2,
     hubData,
     httptest,
