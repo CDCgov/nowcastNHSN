@@ -10,11 +10,13 @@ muffle_known_hub_dedup_warning <- function(expr) {
   withCallingHandlers(
     expr,
     warning = function(w) {
-      if (grepl(
-        "Multiple as_of dates mapped to the same report_date",
-        conditionMessage(w),
-        fixed = TRUE
-      )) {
+      if (
+        grepl(
+          "Multiple as_of dates mapped to the same report_date",
+          conditionMessage(w),
+          fixed = TRUE
+        )
+      ) {
         invokeRestart("muffleWarning")
       }
     }
@@ -132,10 +134,13 @@ test_that("fetch_reporting_data works with flu and rsv hub targets", {
 
     expect_s3_class(result, "data.frame")
     expect_true(nrow(result) > 0, info = info)
-    expect_true(all(
-      c("reference_date", "report_date", "location", "count", "signal") %in%
-        names(result)
-    ), info = info)
+    expect_true(
+      all(
+        c("reference_date", "report_date", "location", "count", "signal") %in%
+          names(result)
+      ),
+      info = info
+    )
     expect_true(all(weekdays(result$reference_date) == "Saturday"), info = info)
     expect_true(all(weekdays(result$report_date) == "Saturday"), info = info)
     expect_true(all(result$location == loc), info = info)
