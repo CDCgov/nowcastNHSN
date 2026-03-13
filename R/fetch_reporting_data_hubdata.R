@@ -10,6 +10,26 @@ date_to_saturday <- function(dates) {
   dates + (6L - wday)
 }
 
+#' Determine the reference date column used by hub data
+#'
+#' @param data A data frame returned from a hub target timeseries query.
+#' @return Name of the column containing reference dates.
+#' @noRd
+hub_reference_date_col <- function(data) {
+  if ("date" %in% names(data)) {
+    return("date")
+  }
+
+  if ("target_end_date" %in% names(data)) {
+    return("target_end_date")
+  }
+
+  cli::cli_abort(c(
+    "Hub data must contain a reference date column.",
+    "i" = "Expected either {.field date} or {.field target_end_date}."
+  ))
+}
+
 #' Filter hub data by reference dates, report dates, and locations
 #'
 #' @param data A data frame with columns reference_date, report_date, location.
@@ -161,10 +181,12 @@ fetch_reporting_data.hub_data_source <- function(
     dplyr::filter(.data$target == source$target) |>
     dplyr::collect()
 
+  date_col <- hub_reference_date_col(raw)
+
   # Transform columns to match output schema
   result <- raw |>
     dplyr::transmute(
-      reference_date = as.Date(.data$date),
+      reference_date = as.Date(.data[[date_col]]),
       as_of = as.Date(.data$as_of),
       report_date = forecasttools::ceiling_mmwr_epiweek(.data$as_of),
       location = tolower(forecasttools::us_location_recode(
