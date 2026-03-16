@@ -17,7 +17,9 @@ knitr::opts_chunk$set(
 ```
 
 ```{r httptest-setup, include = FALSE}
-library(httptest)
+old_epidatr_use_cache <- Sys.getenv("EPIDATR_USE_CACHE", unset = NA_character_)
+Sys.setenv(EPIDATR_USE_CACHE = "FALSE")
+library(httptest2)
 start_vignette("getting-started")
 ```
 
@@ -478,4 +480,9 @@ The normal distribution (rounded) probably works better for larger counts with r
 
 ```{r httptest-teardown, include = FALSE}
 end_vignette()
+if (is.na(old_epidatr_use_cache)) {
+  Sys.unsetenv("EPIDATR_USE_CACHE")
+} else {
+  Sys.setenv(EPIDATR_USE_CACHE = old_epidatr_use_cache)
+}
 ```

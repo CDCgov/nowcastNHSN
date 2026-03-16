@@ -32,9 +32,10 @@ Remotes:
 Suggests:
     argparse,
     arrow,
+    curl,
     ggplot2,
     hubData,
-    httptest,
+    httptest2,
     knitr,
     mirai,
     pkgdown,

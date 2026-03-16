@@ -37,6 +37,24 @@ test_that("date_to_saturday returns correct Saturdays", {
   )
 })
 
+test_that("hub_reference_date_col supports known hub schemas", {
+  expect_equal(
+    hub_reference_date_col(data.frame(date = "2024-01-06")),
+    "date"
+  )
+  expect_equal(
+    hub_reference_date_col(data.frame(target_end_date = "2024-01-06")),
+    "target_end_date"
+  )
+})
+
+test_that("hub_reference_date_col errors for unsupported hub schemas", {
+  expect_error(
+    hub_reference_date_col(data.frame(as_of = "2024-01-13")),
+    "reference date column"
+  )
+})
+
 test_that("forecasttools FIPS recode works for known codes", {
   recode <- function(x) {
     tolower(forecasttools::us_location_recode(

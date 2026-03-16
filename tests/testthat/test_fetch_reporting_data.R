@@ -6,65 +6,101 @@ reference_dates <- seq(
 )
 loc <- "ca"
 
+muffle_known_hub_dedup_warning <- function(expr) {
+  withCallingHandlers(
+    expr,
+    warning = function(w) {
+      if (
+        grepl(
+          "Multiple as_of dates mapped to the same report_date",
+          conditionMessage(w),
+          fixed = TRUE
+        )
+      ) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+}
+
 test_that("test fixture dates are all Saturdays", {
   # All dates should be Saturdays (day 6) per MMWR epiweek convention
   expect_true(all(weekdays(report_dates) == "Saturday"))
   expect_true(all(weekdays(reference_dates) == "Saturday"))
 })
 
-# Note: httptest2 doesn't work with epidatr because epidatr uses httr (v1), not httr2.
-# epidatr makes HTTP requests via httr::RETRY() and httr::content() (see R/request.R
-# in cmu-delphi/epidatr), which httptest2 can't intercept. The original httptest
-# package could theoretically work, but epidatr also has its own caching layer that
-# makes mocking complex. Using skip_if_offline() is the recommended approach.
+# Note: the Epidata path is mocked with httptest2 because epidatr now appears
+# to use httr2 in CI. We disable epidatr's own cache in this test so replayed
+# HTTP mocks, rather than cached responses, remain the source of truth.
 test_that("fetch_reporting_data works with epidatr_source", {
-  skip_if_offline()
+  skip_if_not_installed("curl")
+  skip_if_not_installed("httptest2")
+  skip_if_not_installed("withr")
 
-  # Create epidatr source
-  src <- delphi_epidata_source(
-    target = "covid",
-    geo_types = "state"
-  )
+  cache_was_enabled <- get(
+    "is_cache_enabled",
+    envir = asNamespace("epidatr")
+  )()
+  cache_args <- get("cache_environ", envir = asNamespace("epidatr"))$cache_args
+  epidatr::clear_cache(disable = TRUE)
+  withr::defer({
+    if (cache_was_enabled && !is.null(cache_args)) {
+      suppressMessages(do.call(
+        epidatr::set_cache,
+        c(cache_args, list(confirm = FALSE))
+      ))
+    }
+  })
 
-  # Fetch data
-  result <- fetch_reporting_data(
-    source = src,
-    reference_dates = reference_dates,
-    report_dates = report_dates,
-    locations = loc
-  )
+  httptest2::with_mock_dir("fetch-reporting-data-epidatr", {
+    # Create epidatr source
+    src <- delphi_epidata_source(
+      target = "covid",
+      geo_types = "state"
+    )
 
-  # Check structure
-  expect_s3_class(result, "data.frame")
-  expect_true(nrow(result) > 0)
-  expect_true(all(
-    c("reference_date", "report_date", "location", "count") %in% names(result)
-  ))
+    # Fetch data
+    result <- fetch_reporting_data(
+      source = src,
+      reference_dates = reference_dates,
+      report_dates = report_dates,
+      locations = loc
+    )
 
-  # Check that we got data for at least some of the requested reference dates
-  expect_true(any(result$reference_date >= min(reference_dates)))
-  # Note: When fetching with specific report_dates, epidata may return
-  # reference dates outside the requested range due to how issues are stored
+    # Check structure
+    expect_s3_class(result, "data.frame")
+    expect_true(nrow(result) > 0)
+    expect_true(all(
+      c("reference_date", "report_date", "location", "count") %in%
+        names(result)
+    ))
 
-  # Epidata may return additional report dates beyond what was requested
-  expect_true(any(result$report_date >= min(report_dates)))
+    # Check that we got data for at least some of the requested reference dates
+    expect_true(any(result$reference_date >= min(reference_dates)))
+    # Note: When fetching with specific report_dates, epidata may return
+    # reference dates outside the requested range due to how issues are stored
+
+    # Epidata may return additional report dates beyond what was requested
+    expect_true(any(result$report_date >= min(report_dates)))
+  })
 })
 
 # Note: arrow S3 requests go through the C++ HTTP layer, so neither httptest
 # nor httptest2 can intercept them. Using skip_if_offline() + skip_if_not_installed().
 test_that("fetch_reporting_data works with hub_data_source", {
+  skip_if_not_installed("curl")
   skip_if_offline()
   skip_if_not_installed("hubData")
   skip_if_not_installed("arrow")
 
   src <- hub_data_source()
 
-  result <- fetch_reporting_data(
+  result <- muffle_known_hub_dedup_warning(fetch_reporting_data(
     source = src,
     reference_dates = reference_dates,
     report_dates = report_dates,
     locations = loc
-  )
+  ))
 
   # Check structure
   expect_s3_class(result, "data.frame")
@@ -84,4 +120,47 @@ test_that("fetch_reporting_data works with hub_data_source", {
   # Check that we got data within the requested ranges
   expect_true(any(result$reference_date >= min(reference_dates)))
   expect_true(any(result$report_date >= min(report_dates)))
+})
+
+test_that("fetch_reporting_data works with flu and rsv hub targets", {
+  skip_if_not_installed("curl")
+  skip_if_offline()
+  skip_if_not_installed("hubData")
+  skip_if_not_installed("arrow")
+
+  sources <- list(
+    flu = hub_data_source(
+      hub_name = "cdcepi-flusight-forecast-hub",
+      target = "wk inc flu hosp"
+    ),
+    rsv = hub_data_source(
+      hub_name = "rsv-forecast-hub",
+      target = "wk inc rsv hosp"
+    )
+  )
+
+  purrr::iwalk(sources, function(src, source_name) {
+    info <- sprintf("%s hub target %s", source_name, src$target)
+
+    result <- muffle_known_hub_dedup_warning(fetch_reporting_data(
+      source = src,
+      reference_dates = reference_dates,
+      report_dates = report_dates,
+      locations = loc
+    ))
+
+    expect_s3_class(result, "data.frame")
+    expect_true(nrow(result) > 0, info = info)
+    expect_true(
+      all(
+        c("reference_date", "report_date", "location", "count", "signal") %in%
+          names(result)
+      ),
+      info = info
+    )
+    expect_true(all(weekdays(result$reference_date) == "Saturday"), info = info)
+    expect_true(all(weekdays(result$report_date) == "Saturday"), info = info)
+    expect_true(all(result$location == loc), info = info)
+    expect_true(all(result$signal == src$target), info = info)
+  })
 })
