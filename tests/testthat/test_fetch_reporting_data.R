@@ -29,43 +29,60 @@ test_that("test fixture dates are all Saturdays", {
   expect_true(all(weekdays(reference_dates) == "Saturday"))
 })
 
-# Note: httptest2 doesn't work with epidatr because epidatr uses httr (v1), not httr2.
-# epidatr makes HTTP requests via httr::RETRY() and httr::content() (see R/request.R
-# in cmu-delphi/epidatr), which httptest2 can't intercept. The original httptest
-# package could theoretically work, but epidatr also has its own caching layer that
-# makes mocking complex. Using skip_if_offline() is the recommended approach.
+# Note: the Epidata path is mocked with httptest2 because epidatr now appears
+# to use httr2 in CI. We disable epidatr's own cache in this test so replayed
+# HTTP mocks, rather than cached responses, remain the source of truth.
 test_that("fetch_reporting_data works with epidatr_source", {
   skip_if_not_installed("curl")
-  skip_if_offline()
+  skip_if_not_installed("httptest2")
+  skip_if_not_installed("withr")
 
-  # Create epidatr source
-  src <- delphi_epidata_source(
-    target = "covid",
-    geo_types = "state"
-  )
+  cache_was_enabled <- get(
+    "is_cache_enabled",
+    envir = asNamespace("epidatr")
+  )()
+  cache_args <- get("cache_environ", envir = asNamespace("epidatr"))$cache_args
+  epidatr::clear_cache(disable = TRUE)
+  withr::defer({
+    if (cache_was_enabled && !is.null(cache_args)) {
+      suppressMessages(do.call(
+        epidatr::set_cache,
+        c(cache_args, list(confirm = FALSE))
+      ))
+    }
+  })
 
-  # Fetch data
-  result <- fetch_reporting_data(
-    source = src,
-    reference_dates = reference_dates,
-    report_dates = report_dates,
-    locations = loc
-  )
+  httptest2::with_mock_dir("fetch-reporting-data-epidatr", {
+    # Create epidatr source
+    src <- delphi_epidata_source(
+      target = "covid",
+      geo_types = "state"
+    )
 
-  # Check structure
-  expect_s3_class(result, "data.frame")
-  expect_true(nrow(result) > 0)
-  expect_true(all(
-    c("reference_date", "report_date", "location", "count") %in% names(result)
-  ))
+    # Fetch data
+    result <- fetch_reporting_data(
+      source = src,
+      reference_dates = reference_dates,
+      report_dates = report_dates,
+      locations = loc
+    )
 
-  # Check that we got data for at least some of the requested reference dates
-  expect_true(any(result$reference_date >= min(reference_dates)))
-  # Note: When fetching with specific report_dates, epidata may return
-  # reference dates outside the requested range due to how issues are stored
+    # Check structure
+    expect_s3_class(result, "data.frame")
+    expect_true(nrow(result) > 0)
+    expect_true(all(
+      c("reference_date", "report_date", "location", "count") %in%
+        names(result)
+    ))
 
-  # Epidata may return additional report dates beyond what was requested
-  expect_true(any(result$report_date >= min(report_dates)))
+    # Check that we got data for at least some of the requested reference dates
+    expect_true(any(result$reference_date >= min(reference_dates)))
+    # Note: When fetching with specific report_dates, epidata may return
+    # reference dates outside the requested range due to how issues are stored
+
+    # Epidata may return additional report dates beyond what was requested
+    expect_true(any(result$report_date >= min(report_dates)))
+  })
 })
 
 # Note: arrow S3 requests go through the C++ HTTP layer, so neither httptest

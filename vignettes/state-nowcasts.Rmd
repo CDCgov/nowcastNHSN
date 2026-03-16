@@ -17,8 +17,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r httptest-setup, include = FALSE}
-library(httptest)
+```{r httptest-setup, include = FALSE, eval = TRUE}
+old_epidatr_use_cache <- Sys.getenv("EPIDATR_USE_CACHE", unset = NA_character_)
+Sys.setenv(EPIDATR_USE_CACHE = "FALSE")
+library(httptest2)
 start_vignette("state-nowcasts")
 ```
 
@@ -463,6 +465,11 @@ Difference of two Poissons. Naturally handles negative revisions. Good for data 
 config <- nowcast_config(uncertainty_model = "skellam")
 ```
 
-```{r httptest-teardown, include = FALSE}
+```{r httptest-teardown, include = FALSE, eval = TRUE}
 end_vignette()
+if (is.na(old_epidatr_use_cache)) {
+  Sys.unsetenv("EPIDATR_USE_CACHE")
+} else {
+  Sys.setenv(EPIDATR_USE_CACHE = old_epidatr_use_cache)
+}
 ```
