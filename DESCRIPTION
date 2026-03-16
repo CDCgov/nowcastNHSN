@@ -35,7 +35,7 @@ Suggests:
     curl,
     ggplot2,
     hubData,
-    httptest,
+    httptest2,
     knitr,
     mirai,
     pkgdown,
