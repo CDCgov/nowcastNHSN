@@ -19,6 +19,33 @@ test_that("hub_data_source validates inputs", {
   expect_error(hub_data_source(target = NULL))
 })
 
+test_that("cfa_dataops_source creates correct class and defaults", {
+  src <- cfa_dataops_source(target = "covid")
+
+  expect_s3_class(src, "cfa_dataops_source")
+  expect_s3_class(src, "reporting_source")
+  expect_equal(src$dataset_namespace, "public.stf.nhsn_hrd_prelim")
+  expect_equal(src$stage, "load")
+  expect_equal(src$count_col, "totalconfc19newadm")
+  expect_equal(src$signal, "totalconfc19newadm")
+  expect_true(src$prelim)
+
+  final_src <- cfa_dataops_source(target = "flu", prelim = FALSE)
+  expect_equal(final_src$dataset_namespace, "public.stf.nhsn_hrd")
+  expect_equal(final_src$count_col, "totalconfflunewadm")
+})
+
+test_that("cfa_dataops_source validates inputs", {
+  expect_error(cfa_dataops_source(target = "measles"))
+  expect_error(cfa_dataops_source(prelim = c(TRUE, FALSE)))
+  expect_error(cfa_dataops_source(dataset_namespace = 123))
+  expect_error(cfa_dataops_source(stage = NULL))
+  expect_error(cfa_dataops_source(command = NULL))
+  expect_error(cfa_dataops_source(cache_dir = 123))
+  expect_error(cfa_dataops_source(force = c(TRUE, FALSE)))
+  expect_error(cfa_dataops_source(dedup = "middle"))
+})
+
 test_that("date_to_saturday returns correct Saturdays", {
   # Wednesday -> Saturday of same week #nolint
   expect_equal(
@@ -97,6 +124,22 @@ test_that("filter_hub_data rejects EpiRange inputs", {
   expect_error(
     filter_hub_data(dummy_data, "*", epi_range, "*"),
     "EpiRange"
+  )
+})
+
+test_that("cfa_dataops_source rejects unsupported date filters", {
+  epi_range <- epidatr::epirange(202401, 202402)
+  expect_error(
+    validate_cfa_dataops_date_filter(epi_range, "report_dates"),
+    "EpiRange"
+  )
+  expect_error(
+    validate_cfa_dataops_date_filter("2024-01-06", "report_dates"),
+    "Invalid"
+  )
+  expect_error(
+    validate_cfa_dataops_date_filter(as.Date("2024-01-05"), "report_dates"),
+    "All dates must be Saturdays"
   )
 })
 
