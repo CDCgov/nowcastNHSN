@@ -43,7 +43,19 @@ test_that("cfa_dataops_source validates inputs", {
   expect_error(cfa_dataops_source(command = NULL))
   expect_error(cfa_dataops_source(cache_dir = 123))
   expect_error(cfa_dataops_source(force = c(TRUE, FALSE)))
-  expect_error(cfa_dataops_source(dedup = "middle"))
+})
+
+test_that("fetch_reporting_data.cfa_dataops_source validates dedup", {
+  src <- cfa_dataops_source(target = "covid")
+  expect_error(
+    fetch_reporting_data(
+      source = src,
+      reference_dates = "*",
+      report_dates = as.Date("2024-12-14"),
+      locations = "ca",
+      dedup = "middle"
+    )
+  )
 })
 
 test_that("date_to_saturday returns correct Saturdays", {
@@ -130,15 +142,15 @@ test_that("filter_hub_data rejects EpiRange inputs", {
 test_that("cfa_dataops_source rejects unsupported date filters", {
   epi_range <- epidatr::epirange(202401, 202402)
   expect_error(
-    validate_cfa_dataops_date_filter(epi_range, "report_dates"),
+    validate_cfa_dataops_dates(epi_range, "report_dates"),
     "EpiRange"
   )
   expect_error(
-    validate_cfa_dataops_date_filter("2024-01-06", "report_dates"),
+    validate_cfa_dataops_dates("2024-01-06", "report_dates"),
     "Invalid"
   )
   expect_error(
-    validate_cfa_dataops_date_filter(as.Date("2024-01-05"), "report_dates"),
+    validate_cfa_dataops_dates(as.Date("2024-01-05"), "report_dates"),
     "All dates must be Saturdays"
   )
 })

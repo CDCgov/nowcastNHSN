@@ -9,9 +9,8 @@
   reference_dates = "*",
   report_dates = "*",
   locations = "*",
-  dedup = NULL,
-  ...,
-  .run_dataops_save = run_dataops_save
+  dedup = c("latest", "earliest"),
+  ...
 )
 }
 \arguments{
@@ -25,12 +24,11 @@
 lowercase two-letter state abbreviations (e.g., \code{"ca"}) or \code{"us"} for
 national data.}
 
-\item{dedup}{Character, how to resolve multiple cfa-dataops versions that
-map to the same report week. \code{NULL} defaults to the source setting.}
+\item{dedup}{Character, \code{"latest"} (default) or \code{"earliest"}. Controls how
+multiple cfa-dataops versions falling in the same MMWR epiweek are
+resolved.}
 
 \item{...}{Additional arguments passed to internal helpers.}
-
-\item{.run_dataops_save}{Internal test hook for the CLI runner.}
 }
 \value{
 data.frame with reporting triangle data.

@@ -45,7 +45,8 @@ test_that("fetch_reporting_data works with mocked cfa-dataops download", {
   src <- cfa_dataops_source(
     target = "covid",
     command = "fake_dataops_save",
-    cache_dir = cache_dir
+    cache_dir = cache_dir,
+    run_dataops_save = runner
   )
 
   expect_warning(
@@ -53,8 +54,7 @@ test_that("fetch_reporting_data works with mocked cfa-dataops download", {
       source = src,
       reference_dates = as.Date("2024-12-07"),
       report_dates = as.Date("2024-12-14"),
-      locations = c("ca", "us"),
-      .run_dataops_save = runner
+      locations = c("ca", "us")
     ),
     "Multiple cfa-dataops versions"
   )

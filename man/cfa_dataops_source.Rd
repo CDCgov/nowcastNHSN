@@ -12,7 +12,7 @@ cfa_dataops_source(
   command = "dataops_save",
   cache_dir = NULL,
   force = FALSE,
-  dedup = c("latest", "earliest")
+  run_dataops_save = NULL
 )
 }
 \arguments{
@@ -32,9 +32,9 @@ cfa-dataops versions. A temporary directory is used when \code{NULL}.}
 
 \item{force}{Logical. Passed through to \code{dataops_save --force}.}
 
-\item{dedup}{Character, how to handle multiple cfa-dataops versions that
-fall within the same MMWR epiweek. \code{"latest"} (default) keeps the most
-recent version; \code{"earliest"} keeps the first.}
+\item{run_dataops_save}{Function used to invoke the \code{dataops_save} CLI.
+Defaults to an internal helper that shells out via \code{\link[=system2]{system2()}}. Primarily
+an injection seam for tests; most users should leave the default.}
 }
 \value{
 A source object of class \code{"cfa_dataops_source"}.

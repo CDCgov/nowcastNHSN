@@ -9,9 +9,13 @@
 #' @param cache_dir Character. Optional directory used for downloaded
 #'   cfa-dataops versions. A temporary directory is used when `NULL`.
 #' @param force Logical. Passed through to `dataops_save --force`.
-#' @param dedup Character, how to handle multiple cfa-dataops versions that
-#'   fall within the same MMWR epiweek. `"latest"` (default) keeps the most
-#'   recent version; `"earliest"` keeps the first.
+#' @param run_dataops_save Function used to invoke the `dataops_save` CLI.
+#'   The default implementation shells out via [system2()]. It is called with
+#'   two arguments: `command` (the value of the `command` constructor
+#'   argument) and `args` (a character vector built from the other
+#'   constructor arguments such as `dataset_namespace`, `stage`, and
+#'   `force`). Override to swap in an alternative runner — for example, a
+#'   different process-spawning mechanism, or a stub during testing.
 #' @return A source object of class `"cfa_dataops_source"`.
 #' @concept data_sources
 #' @export
@@ -23,15 +27,14 @@ cfa_dataops_source <- function(
   command = "dataops_save",
   cache_dir = NULL,
   force = FALSE,
-  dedup = c("latest", "earliest")
+  run_dataops_save = NULL
 ) {
   target <- rlang::arg_match(target)
-  dedup <- rlang::arg_match(dedup, c("latest", "earliest"))
 
-  checkmate::assert_logical(prelim, len = 1, any.missing = FALSE)
+  checkmate::assert_flag(prelim)
   checkmate::assert_string(stage)
   checkmate::assert_string(command)
-  checkmate::assert_logical(force, len = 1, any.missing = FALSE)
+  checkmate::assert_flag(force)
 
   if (!is.null(dataset_namespace)) {
     checkmate::assert_string(dataset_namespace)
@@ -39,6 +42,10 @@ cfa_dataops_source <- function(
   if (!is.null(cache_dir)) {
     checkmate::assert_string(cache_dir)
   }
+  if (is.null(run_dataops_save)) {
+    run_dataops_save <- default_run_dataops_save
+  }
+  checkmate::assert_function(run_dataops_save)
 
   count_col <- c(
     covid = "totalconfc19newadm",
@@ -63,9 +70,7 @@ cfa_dataops_source <- function(
       command = command,
       cache_dir = cache_dir,
       force = force,
-      dedup = dedup,
-      reference_col = "weekendingdate",
-      location_col = "jurisdiction",
+      run_dataops_save = run_dataops_save,
       count_col = count_col,
       signal = count_col
     ),
@@ -81,10 +86,10 @@ cfa_dataops_source <- function(
 #' @param locations Character vector of locations (`"*"` for all). Use
 #'   lowercase two-letter state abbreviations (e.g., `"ca"`) or `"us"` for
 #'   national data.
-#' @param dedup Character, how to resolve multiple cfa-dataops versions that
-#'   map to the same report week. `NULL` defaults to the source setting.
+#' @param dedup Character, `"latest"` (default) or `"earliest"`. Controls how
+#'   multiple cfa-dataops versions falling in the same MMWR epiweek are
+#'   resolved.
 #' @param ... Additional arguments passed to internal helpers.
-#' @param .run_dataops_save Internal test hook for the CLI runner.
 #' @return data.frame with reporting triangle data.
 #' @concept data_fetching
 #' @export
@@ -93,21 +98,17 @@ fetch_reporting_data.cfa_dataops_source <- function(
   reference_dates = "*",
   report_dates = "*",
   locations = "*",
-  dedup = NULL,
-  ...,
-  .run_dataops_save = run_dataops_save
+  dedup = c("latest", "earliest"),
+  ...
 ) {
-  if (is.null(dedup)) {
-    dedup <- source$dedup
-  }
-  dedup <- rlang::arg_match(dedup, c("latest", "earliest"))
-  validate_cfa_dataops_date_filter(reference_dates, "reference_dates")
-  validate_cfa_dataops_date_filter(report_dates, "report_dates")
+  dedup <- rlang::arg_match(dedup)
+  validate_cfa_dataops_dates(reference_dates, "reference_dates")
+  validate_cfa_dataops_dates(report_dates, "report_dates")
 
   download_dir <- cfa_dataops_download_dir(source)
   dir.create(download_dir, recursive = TRUE, showWarnings = FALSE)
 
-  .run_dataops_save(
+  source$run_dataops_save(
     command = source$command,
     args = cfa_dataops_save_args(
       source = source,
@@ -116,38 +117,49 @@ fetch_reporting_data.cfa_dataops_source <- function(
     )
   )
 
-  result <- read_cfa_dataops_download(
+  data <- read_cfa_dataops_download(
     download_dir = download_dir,
     source = source,
     dedup = dedup
   )
 
-  filter_cfa_dataops_reporting_data(
-    result,
-    reference_dates = reference_dates,
-    report_dates = report_dates,
-    locations = locations
-  )
+  if (!identical(reference_dates, "*")) {
+    data <- dplyr::filter(
+      data,
+      .data$reference_date %in% as.Date(reference_dates)
+    )
+  }
+  if (!identical(report_dates, "*")) {
+    data <- dplyr::filter(
+      data,
+      .data$report_date %in% as.Date(report_dates)
+    )
+  }
+  if (!identical(locations, "*")) {
+    data <- dplyr::filter(data, .data$location %in% locations)
+  }
+
+  data
 }
 
 #' @noRd
-validate_cfa_dataops_date_filter <- function(x, name) {
+validate_cfa_dataops_dates <- function(x, name) {
   if (identical(x, "*")) {
     return(invisible(NULL))
   }
 
-  if (inherits(x, "EpiRange")) {
-    cli::cli_abort(c(
-      "{.cls EpiRange} objects are not supported by {.fun cfa_dataops_source}.",
-      "i" = "Pass a {.cls Date} vector or {.val *} for {.arg {name}}."
-    ))
-  }
-
   if (!inherits(x, "Date")) {
-    cli::cli_abort(c(
-      "Invalid {.arg {name}}.",
-      "i" = "Pass a {.cls Date} vector or {.val *}."
-    ))
+    msg <- c(
+      "Invalid {.arg {name}}: expected a {.cls Date} vector or {.val *}."
+    )
+    if (inherits(x, "EpiRange")) {
+      msg <- c(
+        msg,
+        x = "{.cls EpiRange} objects are not supported by
+             {.fun cfa_dataops_source}."
+      )
+    }
+    cli::cli_abort(msg)
   }
 
   validate_all_saturdays(x)
@@ -201,7 +213,7 @@ cfa_dataops_version_query <- function(report_dates) {
 }
 
 #' @noRd
-run_dataops_save <- function(command, args) {
+default_run_dataops_save <- function(command, args) {
   command_path <- Sys.which(command)
   if (!nzchar(command_path)) {
     cli::cli_abort(c(
@@ -303,7 +315,7 @@ read_cfa_dataops_file <- function(file, source, download_dir) {
   version_date <- cfa_dataops_version_date(version)
   data <- read_cfa_dataops_table(file)
 
-  required <- c(source$reference_col, source$location_col, source$count_col)
+  required <- c("weekendingdate", "jurisdiction", source$count_col)
   missing <- setdiff(required, names(data))
   if (length(missing) > 0L) {
     cli::cli_abort(c(
@@ -314,11 +326,11 @@ read_cfa_dataops_file <- function(file, source, download_dir) {
     ))
   }
 
-  loc <- as.character(data[[source$location_col]])
+  loc <- as.character(data[["jurisdiction"]])
   loc[loc == "USA"] <- "US"
 
   data.frame(
-    reference_date = as.Date(data[[source$reference_col]]),
+    reference_date = as.Date(data[["weekendingdate"]]),
     report_date = date_to_saturday(version_date),
     location = tolower(loc),
     count = as.numeric(data[[source$count_col]]),
@@ -363,23 +375,11 @@ read_cfa_dataops_table <- function(file) {
     return(as.data.frame(arrow::read_parquet(file)))
   }
 
-  if (ext == "csv") {
-    return(utils::read.csv(
-      file,
-      stringsAsFactors = FALSE,
-      check.names = FALSE
-    ))
-  }
-
-  cli::cli_abort(c(
-    "Unsupported cfa-dataops file format {.val {ext}}.",
-    "i" = "Only parquet and CSV downloads are supported."
-  ))
+  utils::read.csv(file, stringsAsFactors = FALSE, check.names = FALSE)
 }
 
 #' @noRd
-dedup_cfa_dataops_data <- function(data, dedup = c("latest", "earliest")) {
-  dedup <- rlang::arg_match(dedup)
+dedup_cfa_dataops_data <- function(data, dedup) {
   group_cols <- c("reference_date", "report_date", "location", "signal")
 
   dupes <- data |>
@@ -413,29 +413,4 @@ dedup_cfa_dataops_data <- function(data, dedup = c("latest", "earliest")) {
     dplyr::group_by(dplyr::across(dplyr::all_of(group_cols))) |>
     slice_fn(n = 1) |>
     dplyr::ungroup()
-}
-
-#' @noRd
-filter_cfa_dataops_reporting_data <- function(
-  data,
-  reference_dates,
-  report_dates,
-  locations
-) {
-  if (!identical(reference_dates, "*")) {
-    data <- dplyr::filter(
-      data,
-      .data$reference_date %in% as.Date(reference_dates)
-    )
-  }
-
-  if (!identical(report_dates, "*")) {
-    data <- dplyr::filter(data, .data$report_date %in% as.Date(report_dates))
-  }
-
-  if (!identical(locations, "*")) {
-    data <- dplyr::filter(data, .data$location %in% locations)
-  }
-
-  data
 }
