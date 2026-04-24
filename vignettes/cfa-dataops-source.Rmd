@@ -1,0 +1,148 @@
+---
+title: "Using Internal cfa-dataops Data with nowcastNHSN"
+output:
+  rmarkdown::html_vignette:
+    code_folding: show
+vignette: >
+  %\VignetteIndexEntry{Using Internal cfa-dataops Data with nowcastNHSN}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE, dev = "pdf", fig.keep = "none"}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  dev = "pdf",
+  fig.keep = "none"
+)
+```
+
+```{r setup}
+library(nowcastNHSN)
+library(baselinenowcast)
+library(dplyr)
+```
+
+## Overview
+
+CDC-internal users with a configured cfa-dataops Python environment and Azure access can use `cfa_dataops_source()` to fetch versioned NHSN HRD snapshots.
+This is a special data path: it shells out to the `dataops_save` command at fetch time, so ordinary package users do not need cfa-dataops, Python catalog packages, or Azure credentials.
+
+The source reads cfa-dataops version directories, maps each version date to the Saturday ending that MMWR epiweek, and uses that mapped date as `report_date`.
+The returned data has the same reporting-triangle schema as the Delphi and hubData sources:
+
+- `reference_date`
+- `report_date`
+- `location`
+- `count`
+- `signal`
+
+## Creating a cfa-dataops Source
+
+Install cfa-dataops and the public catalog in the workflow environment that will run this data source.
+For example, using `uv`:
+
+```{bash install-cfa-dataops, eval = FALSE}
+uv venv /tmp/nowcastnhsn-cfa-dataops-venv --python 3.13
+UV_CACHE_DIR=/tmp/uv-cache uv pip install \
+  --python /tmp/nowcastnhsn-cfa-dataops-venv/bin/python \
+  "cfa-dataops @ git+https://github.com/CDCgov/cfa-dataops.git@main" \
+  "cfa-catalog-public @ git+https://github.com/CDCgov/cfa-catalog-pub.git"
+
+export DATAOPS_SAVE=/tmp/nowcastnhsn-cfa-dataops-venv/bin/dataops_save
+```
+
+By default, `cfa_dataops_source()` uses the preliminary cfa-stf NHSN HRD dataset namespace, `public.stf.nhsn_hrd_prelim`.
+Set `prelim = FALSE` to use `public.stf.nhsn_hrd`.
+
+```{r create-source, eval = FALSE}
+source <- cfa_dataops_source(
+  target = "covid",
+  command = Sys.getenv("DATAOPS_SAVE", "dataops_save")
+)
+```
+
+The disease target maps to the NHSN HRD column names used by the cfa-stf pipeline:
+
+- `target = "covid"` uses `totalconfc19newadm`
+- `target = "flu"` uses `totalconfflunewadm`
+- `target = "rsv"` uses `totalconfrsvnewadm`
+
+## Fetching Reporting Data
+
+The interface is the same `fetch_reporting_data()` generic used by the other data sources.
+Pass Saturday week-ending `Date` vectors for `reference_dates` and `report_dates`.
+
+```{r fetch-data, eval = FALSE}
+reporting_data <- fetch_reporting_data(
+  source = source,
+  reference_dates = seq(
+    as.Date("2025-08-09"),
+    as.Date("2025-08-30"),
+    by = "week"
+  ),
+  report_dates = seq(
+    as.Date("2025-08-16"),
+    as.Date("2025-09-06"),
+    by = "week"
+  ),
+  locations = c("ca", "ny")
+)
+```
+
+```{r fetch-data-fixture, include = FALSE}
+# Load pre-computed fixture to avoid requiring cfa-dataops and Azure access on
+# every vignette build. To regenerate: run the chunk above in a cfa-dataops
+# enabled environment and saveRDS() the result to
+# vignettes/cfa-dataops-source/reporting_data.rds #nolint
+reporting_data <- readRDS("cfa-dataops-source/reporting_data.rds")
+```
+
+```{r show-data}
+head(reporting_data)
+```
+
+Internally, the method calls `dataops_save` with a bounded version query and `--full_range`.
+For the report dates above, the version query covers all cfa-dataops versions from the Sunday before the first report week through the day before the week after the last report week.
+
+If multiple cfa-dataops versions fall in the same MMWR epiweek, `dedup = "latest"` keeps the most recent version for that `report_date`.
+Use `dedup = "earliest"` to keep the first version in that report week.
+
+```{r dedup, eval = FALSE}
+reporting_data <- fetch_reporting_data(
+  source = source,
+  reference_dates = "*",
+  report_dates = seq(
+    as.Date("2025-08-16"),
+    as.Date("2025-09-06"),
+    by = "week"
+  ),
+  locations = "ca",
+  dedup = "earliest"
+)
+```
+
+## Reporting Triangle Check
+
+The returned data can go through the same cumulative-to-incremental and reporting-triangle path as other sources:
+
+```{r triangle-check}
+ca_data <- reporting_data |>
+  filter(location == "ca") |>
+  cumulative_to_incremental(group_cols = c("reference_date", "location", "signal"))
+
+reporting_triangle <- as_reporting_triangle(ca_data, delays_unit = "weeks")
+print(reporting_triangle)
+```
+
+## Environment Requirements
+
+This data source expects the machine running R to have:
+
+- the `dataops_save` command on `PATH`, or a full command path supplied via `command`
+- the relevant cfa-dataops catalog package installed
+- Azure authentication and permissions for the backing storage
+
+These requirements are only checked when this data source is used.
+They are not required to install or use the rest of `nowcastNHSN`.
