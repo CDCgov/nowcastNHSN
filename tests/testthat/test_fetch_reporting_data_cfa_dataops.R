@@ -48,8 +48,8 @@ test_that("fetch_reporting_data works with mocked cfa-dataops download", {
     cache_dir = cache_dir
   )
 
-  result <- expect_warning(
-    fetch_reporting_data(
+  expect_warning(
+    result <- fetch_reporting_data(
       source = src,
       reference_dates = as.Date("2024-12-07"),
       report_dates = as.Date("2024-12-14"),
@@ -90,8 +90,8 @@ test_that("cfa-dataops dedup can keep earliest version", {
   mock_cfa_dataops_download("fake_dataops_save", c("dataset", cache_dir))
 
   src <- cfa_dataops_source(target = "covid", cache_dir = cache_dir)
-  result <- expect_warning(
-    read_cfa_dataops_download(cache_dir, src, dedup = "earliest"),
+  expect_warning(
+    result <- read_cfa_dataops_download(cache_dir, src, dedup = "earliest"),
     "Multiple cfa-dataops versions"
   )
 
