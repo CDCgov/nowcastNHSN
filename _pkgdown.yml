@@ -27,6 +27,8 @@ navbar:
         href: articles/getting-started.html
       - text: Data Sources
         href: articles/hubdata-source.html
+      - text: Internal cfa-dataops Source
+        href: articles/cfa-dataops-source.html
       - text: State-Level Nowcasts
         href: articles/state-nowcasts.html
 

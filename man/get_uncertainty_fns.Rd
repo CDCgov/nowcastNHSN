@@ -4,7 +4,7 @@
 \alias{get_uncertainty_fns}
 \title{Get uncertainty model and sampler functions by name}
 \usage{
-get_uncertainty_fns(model_name)
+get_uncertainty_fns(model_name = c("negative_binomial", "normal", "skellam"))
 }
 \arguments{
 \item{model_name}{Character. One of \code{"negative_binomial"}, \code{"normal"}, or
