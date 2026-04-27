@@ -250,13 +250,11 @@ default_run_dataops_save <- function(command, args) {
 
 #' @noRd
 read_cfa_dataops_download <- function(download_dir, source, dedup) {
-  files <- list.files(
+  files <- fs::dir_ls(
     download_dir,
-    recursive = TRUE,
-    full.names = TRUE,
-    no.. = TRUE
+    recurse = TRUE,
+    type = "file"
   )
-  files <- files[file.info(files)$isdir %in% FALSE]
   files <- cfa_dataops_data_files(files)
 
   if (length(files) == 0L) {

@@ -20,6 +20,7 @@ Imports:
     dplyr,
     epidatr,
     forecasttools (>= 0.1.7),
+    fs,
     lubridate,
     purrr,
     rlang,
