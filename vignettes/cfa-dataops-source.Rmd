@@ -42,23 +42,16 @@ You will need the `cfa-dataops` Python package and the relevant public catalog i
 A minimal `uv`-based setup looks like this:
 
 ```{bash install-cfa-dataops, eval = FALSE}
-uv venv /tmp/nowcastnhsn-cfa-dataops-venv --python 3.13
-UV_CACHE_DIR=/tmp/uv-cache uv pip install \
-  --python /tmp/nowcastnhsn-cfa-dataops-venv/bin/python \
+uv tool install \
   "cfa-dataops @ git+https://github.com/CDCgov/cfa-dataops.git@main" \
-  "cfa-catalog-public @ git+https://github.com/CDCgov/cfa-catalog-pub.git"
-
-export DATAOPS_SAVE=/tmp/nowcastnhsn-cfa-dataops-venv/bin/dataops_save
+  --with "cfa-catalog-public @ git+https://github.com/CDCgov/cfa-catalog-pub.git"
 ```
 
 With that in place, `cfa_dataops_source()` creates a source object.
-The `target` argument selects the disease signal, and `command` points to the `dataops_save` executable that R will call to fetch each snapshot.
+The `target` argument selects the disease signal; `dataops_save` is picked up from `PATH` by default.
 
 ```{r create-source, eval = FALSE}
-source <- cfa_dataops_source(
-  target = "covid",
-  command = Sys.getenv("DATAOPS_SAVE", "dataops_save")
-)
+source <- cfa_dataops_source(target = "covid")
 ```
 
 The available disease targets mirror the NHSN admissions columns used in the cfa-stf pipeline:
