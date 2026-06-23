@@ -30,7 +30,7 @@ jobs:
       DELPHI_EPIDATA_KEY: ${{ secrets.DELPHI_EPIDATA_KEY }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: r-lib/actions/setup-pandoc@v2
 
