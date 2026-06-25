@@ -44,9 +44,9 @@
 #' @importFrom dplyr filter mutate
 #' @importFrom rlang .data .env
 #' @importFrom cli cli_progress_bar cli_progress_update cli_progress_done
-#'   cli_alert_success cli_alert_warning cli_alert_info
+#' @importFrom cli cli_alert_success cli_alert_warning cli_alert_info
 #' @importFrom baselinenowcast as_reporting_triangle truncate_to_delay
-#'   baselinenowcast
+#' @importFrom baselinenowcast baselinenowcast
 #' @export
 #'
 #' @examples
@@ -250,7 +250,7 @@ run_state_nowcasts <- function(
 #'
 #' @importFrom dplyr filter mutate
 #' @importFrom baselinenowcast as_reporting_triangle truncate_to_delay
-#'   baselinenowcast
+#' @importFrom baselinenowcast baselinenowcast
 #' @export
 #'
 #' @examples

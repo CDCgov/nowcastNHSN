@@ -33,7 +33,8 @@
 #' @returns A list of class `nowcast_config` containing validated parameters.
 #'
 #' @importFrom checkmate assert_int assert_number assert_character
-#'   assert_logical assert_choice makeAssertCollection reportAssertions
+#' @importFrom checkmate assert_logical assert_choice makeAssertCollection
+#' @importFrom checkmate reportAssertions
 #' @importFrom cli cli_abort
 #' @export
 #'

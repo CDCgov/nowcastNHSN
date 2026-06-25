@@ -140,6 +140,11 @@ fetch_nhsn_data <- function(
 #' @param ... Additional arguments passed to `epidatr::pub_covidcast()` via
 #'   [fetch_nhsn_data()], such as `fetch_args` for controlling caching behavior.
 #'
+#' @details
+#' The epidatr API returns cumulative counts (total reported as of each issue
+#' date). Use [cumulative_to_incremental()] to convert to incremental counts
+#' if needed for `baselinenowcast::as_reporting_triangle()`.
+#'
 #' @return A data frame in long format suitable for reporting triangle construction
 #'   with columns:
 #'   - `reference_date`: Date of the event (epiweek-ending Saturday)
@@ -149,10 +154,6 @@ fetch_nhsn_data <- function(
 #'   - `signal`: Signal name
 #'
 #' @concept data_fetching
-#' The epidatr API returns cumulative counts (total reported as of each issue
-#' date). Use [cumulative_to_incremental()] to convert to incremental counts
-#' if needed for `baselinenowcast::as_reporting_triangle()`.
-#'
 #' @export
 fetch_reporting_data_epidatr <- function(
   signal = "confirmed_admissions_covid_ew_prelim",

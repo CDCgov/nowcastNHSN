@@ -1,3 +1,15 @@
+# nowcastNHSN 0.2.0
+
+* `nowcast_config()` gains two opt-in controls for more robust probabilistic
+  nowcasts. `robust_sample = TRUE` lets Skellam uncertainty sampling widen
+  invalid variances instead of erroring when `variance <= |pred|`, and
+  `nonneg_pred = TRUE` clamps negative predicted counts in final nowcast
+  outputs to `0` (#34).
+* `run_single_nowcast()` now passes `robust_sample` through to the configured
+  uncertainty sampler and applies `nonneg_pred` after fitting.
+* Documentation, examples, and tests were updated for the new configuration
+  options.
+
 # nowcastNHSN 0.1.0
 
 Initial release of `nowcastNHSN`, an R package providing tooling for
@@ -33,11 +45,6 @@ nowcasting National Healthcare Safety Network (NHSN) reporting data.
   point nowcasts and `sample_normal()` / `sample_skellam()` sample from them.
 * `get_uncertainty_fns()` selects the matched fit/sample pair for use
   inside the nowcast pipeline.
-* `nowcast_config()` gains opt-in `robust_sample` and `nonneg_pred` flags
-  (both default `FALSE`) that stop failure-prone error distributions such
-  as the Skellam from failing: `robust_sample` widens the variance instead of
-  erroring when `variance <= |pred|`, and `nonneg_pred` clamps negative
-  predicted counts to `0` (#34).
 
 ## Date and reporting helpers
 

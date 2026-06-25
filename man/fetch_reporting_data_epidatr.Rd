@@ -49,7 +49,9 @@ to a long format suitable for reporting triangle construction.
 Uses \code{reference_week_day = 7} by default to return Saturday week-ending
 dates, matching both MMWR epiweek and forecast hub conventions.
 }
-\concept{data_fetching
+\details{
 The epidatr API returns cumulative counts (total reported as of each issue
-date). Use [cumulative_to_incremental()] to convert to incremental counts
-if needed for `baselinenowcast::as_reporting_triangle()`.}
+date). Use \code{\link[=cumulative_to_incremental]{cumulative_to_incremental()}} to convert to incremental counts
+if needed for \code{baselinenowcast::as_reporting_triangle()}.
+}
+\concept{data_fetching}
