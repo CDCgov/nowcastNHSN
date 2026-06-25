@@ -136,12 +136,17 @@ test_that("sample_skellam errors when variance <= |pred|", {
   )
 })
 
-test_that("sample_skellam with robust = TRUE does not error when variance <= |pred|", { # nolint: line_length_linter
+test_that("sample_skellam with robust = TRUE does not error when variance <= |pred|", {
+  # nolint: line_length_linter
   pred <- c(5)
   variance <- 4 # Invalid: must be > 5 for non-robust parameters
 
   expect_no_error(
-    samples <- sample_skellam(pred, uncertainty_params = variance, robust = TRUE)
+    samples <- sample_skellam(
+      pred,
+      uncertainty_params = variance,
+      robust = TRUE
+    )
   )
   expect_length(samples, 1)
   expect_true(all(samples == floor(samples)))

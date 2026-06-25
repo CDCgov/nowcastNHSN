@@ -73,8 +73,18 @@ nowcast_config <- function(
   checkmate::assert_number(scale_factor, lower = 0, add = coll)
   checkmate::assert_number(prop_delay, lower = 0, upper = 1, add = coll)
   checkmate::assert_int(draws, lower = 1L, add = coll)
-  checkmate::assert_logical(robust_sample, len = 1, any.missing = FALSE, add = coll)
-  checkmate::assert_logical(nonneg_pred, len = 1, any.missing = FALSE, add = coll)
+  checkmate::assert_logical(
+    robust_sample,
+    len = 1,
+    any.missing = FALSE,
+    add = coll
+  )
+  checkmate::assert_logical(
+    nonneg_pred,
+    len = 1,
+    any.missing = FALSE,
+    add = coll
+  )
   if (!is.null(location)) {
     checkmate::assert_character(location, len = 1, add = coll)
   }
