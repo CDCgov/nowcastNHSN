@@ -28,7 +28,7 @@ samples
 }
 \seealso{
 Other sample_distribution:
-\code{\link{sample_skellam}()}
+\code{\link[=sample_skellam]{sample_skellam()}}
 }
 \concept{probabilistic_methods}
 \concept{sample_distribution}

@@ -12,7 +12,6 @@ URL: https://cdcgov.github.io/nowcastNHSN/, https://github.com/CDCgov/nowcastNHS
 BugReports: https://github.com/CDCgov/nowcastNHSN/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Imports:
     baselinenowcast (>= 0.0.0.1000),
     checkmate,
@@ -46,3 +45,4 @@ Suggests:
     withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

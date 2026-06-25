@@ -47,7 +47,7 @@ lambda2 <- 0.5 * (variance - mu_new)
 }
 \seealso{
 Other estimate_observation_error:
-\code{\link{fit_normal}()}
+\code{\link[=fit_normal]{fit_normal()}}
 }
 \concept{estimate_observation_error}
 \concept{probabilistic_methods}

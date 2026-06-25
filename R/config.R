@@ -15,6 +15,16 @@
 #'   probabilistic nowcasts.
 #' @param draws Integer. Number of posterior draws for probabilistic nowcasts.
 #'   Default is 1000.
+#' @param robust_sample Logical. If `TRUE`, make the uncertainty sampler robust
+#'   so it can always draw. For the `"skellam"` model this increases the variance
+#'   to the minimum value that yields valid (positive) Poisson rates for the
+#'   given nowcast mean, instead of erroring when `variance <= |pred|` (see
+#'   [sample_skellam()]). No-op for `"normal"` and `"negative_binomial"`, which
+#'   cannot fail this way. Default is `FALSE`.
+#' @param nonneg_pred Logical. If `TRUE`, clamp negative predicted counts in the
+#'   final nowcast to `0`. This guards against draws where the summed revisions
+#'   push the combined count below zero, at the cost of distorting the
+#'   probabilistic model near zero. Default is `FALSE`.
 #' @param location Character. A single location code (e.g., `"ca"`).
 #'   Default is `NULL`, meaning no specific location is set.
 #' @param output_dir Character. Directory path for partitioned parquet output.
@@ -49,6 +59,8 @@ nowcast_config <- function(
   prop_delay = 0.5,
   uncertainty_model = c("negative_binomial", "normal", "skellam"),
   draws = 1000L,
+  robust_sample = FALSE,
+  nonneg_pred = FALSE,
   location = NULL,
   output_dir = NULL
 ) {
@@ -61,6 +73,8 @@ nowcast_config <- function(
   checkmate::assert_number(scale_factor, lower = 0, add = coll)
   checkmate::assert_number(prop_delay, lower = 0, upper = 1, add = coll)
   checkmate::assert_int(draws, lower = 1L, add = coll)
+  checkmate::assert_logical(robust_sample, len = 1, any.missing = FALSE, add = coll)
+  checkmate::assert_logical(nonneg_pred, len = 1, any.missing = FALSE, add = coll)
   if (!is.null(location)) {
     checkmate::assert_character(location, len = 1, add = coll)
   }
@@ -75,6 +89,8 @@ nowcast_config <- function(
     prop_delay = prop_delay,
     uncertainty_model = uncertainty_model,
     draws = as.integer(draws),
+    robust_sample = robust_sample,
+    nonneg_pred = nonneg_pred,
     location = location,
     output_dir = output_dir
   )
@@ -98,6 +114,8 @@ print.nowcast_config <- function(x, ...) {
   cli::cli_li("prop_delay: {.val {x$prop_delay}}")
   cli::cli_li("uncertainty_model: {.val {x$uncertainty_model}}")
   cli::cli_li("draws: {.val {x$draws}}")
+  cli::cli_li("robust_sample: {.val {x$robust_sample %||% FALSE}}")
+  cli::cli_li("nonneg_pred: {.val {x$nonneg_pred %||% FALSE}}")
   cli::cli_li("location: {.val {x$location %||% 'NULL (set at runtime)'}}")
 
   cli::cli_li("output_dir: {.val {x$output_dir %||% 'NULL (no file output)'}}")

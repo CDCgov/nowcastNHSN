@@ -267,7 +267,10 @@ run_single_nowcast <- function(
   cumulative = TRUE
 ) {
   # Get uncertainty functions from config
-  uncertainty_fns <- get_uncertainty_fns(config$uncertainty_model)
+  uncertainty_fns <- get_uncertainty_fns(
+    config$uncertainty_model,
+    robust_sample = isTRUE(config$robust_sample)
+  )
 
   # Filter to location
   loc_data <- data |>
@@ -300,6 +303,12 @@ run_single_nowcast <- function(
     uncertainty_model = uncertainty_fns$uncertainty_model,
     uncertainty_sampler = uncertainty_fns$uncertainty_sampler
   )
+
+  # Clamp negative predicted counts to zero if requested
+  if (isTRUE(config$nonneg_pred)) {
+    nowcast_result <- nowcast_result |>
+      dplyr::mutate(pred_count = pmax(.data$pred_count, 0))
+  }
 
   # Add location column
   nowcast_result <- nowcast_result |>

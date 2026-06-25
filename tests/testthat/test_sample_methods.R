@@ -136,6 +136,48 @@ test_that("sample_skellam errors when variance <= |pred|", {
   )
 })
 
+test_that("sample_skellam with robust = TRUE does not error when variance <= |pred|", { # nolint: line_length_linter
+  pred <- c(5)
+  variance <- 4 # Invalid: must be > 5 for non-robust parameters
+
+  expect_no_error(
+    samples <- sample_skellam(pred, uncertainty_params = variance, robust = TRUE)
+  )
+  expect_length(samples, 1)
+  expect_true(all(samples == floor(samples)))
+})
+
+test_that("sample_skellam with robust = TRUE recovers the mean (approx)", {
+  pred <- 5
+  variance <- 4 # Invalid for non-robust; bumped to |pred| + eps when robust
+  n_samples <- 10000
+
+  samples <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance, robust = TRUE))
+  )
+
+  # Bumping the variance preserves the mean (= pred)
+  expect_equal(mean(samples), pred, tolerance = 0.5)
+})
+
+test_that("sample_skellam robust mode leaves valid variances unchanged", {
+  pred <- 5
+  variance <- 20 # Already valid (> |pred|)
+  n_samples <- 5000
+
+  with_robust <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance, robust = TRUE))
+  )
+  without_robust <- withr::with_seed(
+    42,
+    replicate(n_samples, sample_skellam(pred, variance, robust = FALSE))
+  )
+
+  expect_identical(with_robust, without_robust)
+})
+
 test_that("sample_skellam handles negative predictions", {
   pred <- c(-5, -3, -1)
   variance <- 20
