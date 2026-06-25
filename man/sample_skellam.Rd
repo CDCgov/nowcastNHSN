@@ -4,7 +4,7 @@
 \alias{sample_skellam}
 \title{Sample from a Skellam distribution given predictions and variance}
 \usage{
-sample_skellam(pred, uncertainty_params)
+sample_skellam(pred, uncertainty_params, robust = FALSE)
 }
 \arguments{
 \item{pred}{Vector of predictions (means). Can be negative.}
@@ -12,6 +12,13 @@ sample_skellam(pred, uncertainty_params)
 \item{uncertainty_params}{Vector of variance parameters. Must satisfy
 variance > |pred| for valid Poisson parameters. If length 1, the same
 variance is used for all predictions.}
+
+\item{robust}{Logical. If \code{FALSE} (the default), invalid Skellam parameters
+(variance <= |pred|) raise an error. If \code{TRUE}, the variance is instead
+bumped up to \verb{|pred| + 1e-6} for the offending entries so that both Poisson
+rates stay positive and sampling can proceed. This preserves the mean
+(\code{pred}) while widening the variance by the minimal amount needed for valid
+parameters. See the \code{robust_sample} option of \code{\link[=nowcast_config]{nowcast_config()}}.}
 }
 \value{
 Integer vector of samples of the same length as \code{pred}.
@@ -41,7 +48,7 @@ samples
 }
 \seealso{
 Other sample_distribution:
-\code{\link{sample_normal}()}
+\code{\link[=sample_normal]{sample_normal()}}
 }
 \concept{probabilistic_methods}
 \concept{sample_distribution}

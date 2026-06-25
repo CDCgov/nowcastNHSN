@@ -27,7 +27,7 @@ variance
 }
 \seealso{
 Other estimate_observation_error:
-\code{\link{fit_skellam}()}
+\code{\link[=fit_skellam]{fit_skellam()}}
 }
 \concept{estimate_observation_error}
 \concept{probabilistic_methods}

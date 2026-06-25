@@ -20,6 +20,11 @@ Useful links:
 \author{
 \strong{Maintainer}: Sam Brand \email{usi1@cdc.gov}
 
+Authors:
+\itemize{
+  \item Sam Brand \email{usi1@cdc.gov}
+}
+
 Other contributors:
 \itemize{
   \item Dylan Morris \email{dzl1@cdc.gov} [contributor]

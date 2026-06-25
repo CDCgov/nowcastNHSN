@@ -45,6 +45,23 @@ test_that("nowcast_config validates parameters", {
   expect_error(nowcast_config(draws = 0), "draws")
 })
 
+test_that("nowcast_config defaults robust flags to FALSE", {
+  config <- nowcast_config()
+
+  expect_false(config$robust_sample)
+  expect_false(config$nonneg_pred)
+})
+
+test_that("nowcast_config stores and validates robust flags", {
+  config <- nowcast_config(robust_sample = TRUE, nonneg_pred = TRUE)
+
+  expect_true(config$robust_sample)
+  expect_true(config$nonneg_pred)
+
+  expect_error(nowcast_config(robust_sample = "yes"), "robust_sample")
+  expect_error(nowcast_config(nonneg_pred = NA), "nonneg_pred")
+})
+
 test_that("nowcast_config_test creates test configuration", {
   config <- nowcast_config_test()
 
@@ -254,6 +271,47 @@ test_that("run_single_nowcast with skellam uncertainty matches direct call", {
     order(wrapper_result$reference_date, wrapper_result$draw),
   ]
   expect_equal(direct_sorted$pred_count, wrapper_sorted$pred_count)
+})
+
+test_that("run_single_nowcast with nonneg_pred = TRUE clamps negative counts", {
+  skip_if_not_installed("baselinenowcast")
+
+  fixtures <- get_test_fixtures()
+  incremental_data <- fixtures$incremental_data
+
+  nowcast_date <- max(incremental_data$reference_date[
+    incremental_data$location == "ca"
+  ])
+
+  base_args <- list(
+    max_delay = 7,
+    scale_factor = 3,
+    prop_delay = 0.5,
+    uncertainty_model = "skellam",
+    draws = 50
+  )
+
+  set.seed(42)
+  raw <- quietly(run_single_nowcast(
+    data = incremental_data,
+    location = "ca",
+    config = do.call(nowcast_config, c(base_args, list(nonneg_pred = FALSE))),
+    nowcast_date = nowcast_date,
+    cumulative = FALSE
+  ))
+
+  set.seed(42)
+  clamped <- quietly(run_single_nowcast(
+    data = incremental_data,
+    location = "ca",
+    config = do.call(nowcast_config, c(base_args, list(nonneg_pred = TRUE))),
+    nowcast_date = nowcast_date,
+    cumulative = FALSE
+  ))
+
+  # Clamping never produces negative counts and equals pmax(raw, 0) elsewhere
+  expect_true(all(clamped$pred_count >= 0))
+  expect_equal(clamped$pred_count, pmax(raw$pred_count, 0))
 })
 
 # ============================================================================

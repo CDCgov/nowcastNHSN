@@ -58,6 +58,12 @@ sample_normal <- function(pred, uncertainty_params) {
 #' @param uncertainty_params Vector of variance parameters. Must satisfy
 #'   variance > |pred| for valid Poisson parameters. If length 1, the same
 #'   variance is used for all predictions.
+#' @param robust Logical. If `FALSE` (the default), invalid Skellam parameters
+#'   (variance <= |pred|) raise an error. If `TRUE`, the variance is instead
+#'   bumped up to `|pred| + 1e-6` for the offending entries so that both Poisson
+#'   rates stay positive and sampling can proceed. This preserves the mean
+#'   (`pred`) while widening the variance by the minimal amount needed for valid
+#'   parameters. See the `robust_sample` option of [nowcast_config()].
 #' @returns Integer vector of samples of the same length as `pred`.
 #' @importFrom stats rpois
 #' @importFrom cli cli_abort
@@ -70,13 +76,20 @@ sample_normal <- function(pred, uncertainty_params) {
 #' variance <- 10
 #' samples <- sample_skellam(pred, uncertainty_params = variance)
 #' samples
-sample_skellam <- function(pred, uncertainty_params) {
+sample_skellam <- function(pred, uncertainty_params, robust = FALSE) {
   # Recycle uncertainty_params to match pred length (only length-1 recycling)
   uncertainty_params <- vctrs::vec_recycle(
     uncertainty_params,
     size = length(pred),
     x_arg = "uncertainty_params"
   )
+
+  # In robust mode, widen the variance to the smallest value that keeps both
+  # Poisson rates positive (variance > |pred|). This preserves the mean and
+  # only adjusts entries that would otherwise be invalid.
+  if (robust) {
+    uncertainty_params <- pmax(uncertainty_params, abs(pred) + 1e-6)
+  }
 
   # Compute Poisson parameters
   lambda1 <- 0.5 * (pred + uncertainty_params)

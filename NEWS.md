@@ -33,6 +33,11 @@ nowcasting National Healthcare Safety Network (NHSN) reporting data.
   point nowcasts and `sample_normal()` / `sample_skellam()` sample from them.
 * `get_uncertainty_fns()` selects the matched fit/sample pair for use
   inside the nowcast pipeline.
+* `nowcast_config()` gains opt-in `robust_sample` and `nonneg_pred` flags
+  (both default `FALSE`) that stop failure-prone error distributions such
+  as the Skellam from failing: `robust_sample` widens the variance instead of
+  erroring when `variance <= |pred|`, and `nonneg_pred` clamps negative
+  predicted counts to `0` (#34).
 
 ## Date and reporting helpers
 

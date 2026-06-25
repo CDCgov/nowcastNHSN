@@ -10,6 +10,8 @@ nowcast_config(
   prop_delay = 0.5,
   uncertainty_model = c("negative_binomial", "normal", "skellam"),
   draws = 1000L,
+  robust_sample = FALSE,
+  nonneg_pred = FALSE,
   location = NULL,
   output_dir = NULL
 )
@@ -30,6 +32,18 @@ probabilistic nowcasts.}
 
 \item{draws}{Integer. Number of posterior draws for probabilistic nowcasts.
 Default is 1000.}
+
+\item{robust_sample}{Logical. If \code{TRUE}, make the uncertainty sampler robust
+so it can always draw. For the \code{"skellam"} model this increases the variance
+to the minimum value that yields valid (positive) Poisson rates for the
+given nowcast mean, instead of erroring when \verb{variance <= |pred|} (see
+\code{\link[=sample_skellam]{sample_skellam()}}). No-op for \code{"normal"} and \code{"negative_binomial"}, which
+cannot fail this way. Default is \code{FALSE}.}
+
+\item{nonneg_pred}{Logical. If \code{TRUE}, clamp negative predicted counts in the
+final nowcast to \code{0}. This guards against draws where the summed revisions
+push the combined count below zero, at the cost of distorting the
+probabilistic model near zero. Default is \code{FALSE}.}
 
 \item{location}{Character. A single location code (e.g., \code{"ca"}).
 Default is \code{NULL}, meaning no specific location is set.}

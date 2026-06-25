@@ -202,6 +202,12 @@ fit_skellam <- function(x, mu, method = "mle") {
 #'
 #' @param model_name Character. One of `"negative_binomial"`, `"normal"`, or
 #'   `"skellam"`.
+#' @param robust_sample Logical. If `TRUE`, the returned `uncertainty_sampler` is
+#'   made robust to invalid distribution parameters where possible. For the
+#'   Skellam model this passes `robust = TRUE` to [sample_skellam()] so that a
+#'   variance <= |pred| widens the variance instead of erroring. No-op for the
+#'   `"normal"` and `"negative_binomial"` models, which cannot fail this way.
+#'   Default is `FALSE`.
 #'
 #' @returns A named list with two elements:
 #'   - `uncertainty_model`: A function for fitting uncertainty parameters
@@ -227,7 +233,8 @@ fit_skellam <- function(x, mu, method = "mle") {
 #' )
 #' }
 get_uncertainty_fns <- function(
-  model_name = c("negative_binomial", "normal", "skellam")
+  model_name = c("negative_binomial", "normal", "skellam"),
+  robust_sample = FALSE
 ) {
   model_name <- match.arg(model_name)
 
@@ -247,7 +254,9 @@ get_uncertainty_fns <- function(
       uncertainty_model = function(obs, pred) {
         baselinenowcast::fit_by_horizon(obs, pred, fit_model = fit_skellam)
       },
-      uncertainty_sampler = sample_skellam
+      uncertainty_sampler = function(pred, uncertainty_params) {
+        sample_skellam(pred, uncertainty_params, robust = robust_sample)
+      }
     )
   )
 }

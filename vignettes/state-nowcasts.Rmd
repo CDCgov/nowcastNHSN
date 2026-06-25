@@ -189,6 +189,8 @@ location_configs <- list(
 | `prop_delay` | Proportion of training data for delay estimation | 0.5 |
 | `uncertainty_model` | Error distribution: `"negative_binomial"`, `"normal"`, `"skellam"` | `"negative_binomial"` |
 | `draws` | Number of posterior samples | 1000 |
+| `robust_sample` | Widen the variance instead of erroring when a Skellam draw would have invalid (`variance <= |pred|`) parameters | FALSE |
+| `nonneg_pred` | Clamp negative predicted counts in the nowcast to `0` | FALSE |
 | `location` | Single location code (optional) | NULL |
 | `output_dir` | Directory for parquet output | NULL |
 

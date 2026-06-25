@@ -33,8 +33,12 @@ cfa-dataops versions. A temporary directory is used when \code{NULL}.}
 \item{force}{Logical. Passed through to \code{dataops_save --force}.}
 
 \item{run_dataops_save}{Function used to invoke the \code{dataops_save} CLI.
-Defaults to an internal helper that shells out via \code{\link[=system2]{system2()}}. Primarily
-an injection seam for tests; most users should leave the default.}
+The default implementation shells out via \code{\link[=system2]{system2()}}. It is called with
+two arguments: \code{command} (the value of the \code{command} constructor
+argument) and \code{args} (a character vector built from the other
+constructor arguments such as \code{dataset_namespace}, \code{stage}, and
+\code{force}). Override to swap in an alternative runner — for example, a
+different process-spawning mechanism, or a stub during testing.}
 }
 \value{
 A source object of class \code{"cfa_dataops_source"}.

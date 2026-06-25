@@ -415,6 +415,14 @@ skellam_summary <- nowcast_skellam |>
 print(skellam_summary)
 ```
 
+Because the Skellam (and rounded normal) can sample negative revisions, two failure modes are possible:
+
+  - The Skellam sampler errors when the fitted Skellam `variance` <= the `|pred|` for a particular horizon
+  - A draw whose summed revisions are large and negative can push the combined count below zero.
+
+When running the pipeline through `nowcast_config()`, the opt-in `robust_sample` and `nonneg_pred` flags make these models robust: `robust_sample = TRUE` widens the variance to the smallest value that keeps the Skellam parameters valid (preserving the mean) instead of erroring, and `nonneg_pred = TRUE` clamps any negative predicted count to `0`.
+Both default to `FALSE`, so a failure remains a useful signal to switch to a strictly non-negative model such as the negative binomial unless robustness is explicitly requested.
+
 ### Comparing Uncertainty Models
 
 Let's visualize how the different uncertainty models compare:
