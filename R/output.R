@@ -2,18 +2,20 @@
 #'
 #' @description
 #' Takes nowcast output with multiple draws and summarizes into
-#' prediction intervals per location and reference date in forecast hub format.
+#' prediction intervals per reference date and series in forecast hub format.
+#' All columns other than the standard nowcast value/draw fields are retained
+#' as series keys, so signals and other strata are summarized separately.
 #'
-#' @param nowcast_results A data frame as returned by [run_state_nowcasts()]
-#'   or [run_single_nowcast()], containing columns `reference_date`, `location`,
-#'   `pred_count`, and `draw`.
+#' @param nowcast_results A data frame as returned by [nowcast()],
+#'   [run_state_nowcasts()], or [run_single_nowcast()], containing
+#'   `reference_date`, `pred_count`, `draw`, and optional series keys.
 #' @param quantiles Numeric vector of quantiles to compute. Default uses
 #'   forecast hub standard: `c(0.01, 0.025, seq(0.05, 0.95, by = 0.05),
 #' 0.975, 0.99)`.
 #'
 #' @returns A data frame in forecast hub format with columns:
 #'   - `reference_date`: The reference date
-#'   - `location`: Geographic identifier
+#'   - Series keys, such as `location` and `signal`, when present in the input
 #'   - `output_type`: Always "quantile"
 #'   - `output_type_id`: Quantile level as character (e.g., "0.5")
 #'   - `value`: The prediction value
@@ -31,14 +33,28 @@ summarize_nowcast <- function(
   nowcast_results,
   quantiles = c(0.01, 0.025, seq(0.05, 0.95, by = 0.05), 0.975, 0.99)
 ) {
+  keys <- setdiff(
+    names(nowcast_results),
+    c(
+      "pred_count",
+      "draw",
+      "output_type",
+      "nowcast",
+      "reference_date"
+    )
+  )
   nowcast_results |>
-    dplyr::group_by(.data$reference_date, .data$location) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(c("reference_date", keys)))) |>
     dplyr::reframe(
       output_type = "quantile",
       output_type_id = as.character(quantiles),
-      value = quantile(.data$pred_count, probs = quantiles)
+      value = quantile(.data$pred_count, probs = quantiles, names = FALSE)
     ) |>
-    dplyr::arrange(.data$reference_date, .data$location, .data$output_type_id)
+    dplyr::arrange(dplyr::across(dplyr::all_of(c(
+      "reference_date",
+      keys,
+      "output_type_id"
+    ))))
 }
 
 #' Write nowcast results to partitioned parquet files
@@ -89,6 +105,8 @@ write_nowcast_parquet <- function(
       i = "Install it with {.code install.packages('arrow')}"
     ))
   }
+
+  checkmate::assert_names(names(nowcast_results), must.include = "location")
 
   # Summarize if requested
   if (summarize) {

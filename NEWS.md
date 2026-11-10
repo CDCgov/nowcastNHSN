@@ -1,3 +1,19 @@
+# nowcastNHSN (development version)
+
+* Add `nowcast()`, an S3 generic dispatching on configuration, with common
+  reporting-triangle inputs and `baselinenowcast_df` outputs (#38).
+* Add optional GAM-Smooth and GAM-RE nowcasting, custom formulas, delay-based
+  and posterior-predictive sampling, and fixed delay offsets.
+* Add keyed triangle collections, independent and pooled GAM fits, and output
+  aggregation by summing aligned final draws. Quantile summaries preserve
+  series identifiers, including signals and other strata.
+* Existing location runners accept baseline or GAM configurations and retain
+  independent per-location fitting. Baseline defaults and calculations are
+  unchanged. Parallel workers load registered model methods and release
+  worker processes created by the runner.
+* Add offline synthetic tests and a GAM vignette documenting revisions,
+  observation cutoffs, grouping, sampling, and methodological limitations.
+
 # nowcastNHSN 0.2.0
 
 * `nowcast_config()` gains two opt-in controls for more robust probabilistic
