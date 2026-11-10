@@ -61,7 +61,11 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: '"hard"'
-          extra-packages: any::testthat, any::withr
+          # forecasttools imports hubData; provide its source even when Suggests are excluded.
+          extra-packages: |
+            any::testthat
+            any::withr
+            hubverse-org/hubData
           cache-version: baseline-only-1
       - name: Test baseline and shared triangle interfaces
         shell: Rscript {0}
