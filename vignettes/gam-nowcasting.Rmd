@@ -1,0 +1,468 @@
+---
+title: "GAM nowcasting and grouped reporting triangles"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{GAM nowcasting and grouped reporting triangles}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", message = FALSE)
+library(nowcastNHSN)
+gam_available <- requireNamespace("mgcv", quietly = TRUE) &&
+  requireNamespace("gratia", quietly = TRUE) &&
+  utils::packageVersion("mgcv") >= "1.9-5" &&
+  utils::packageVersion("gratia") >= "0.11.2"
+```
+
+## Introduction
+
+In this vignette, we demonstrate swapping from the default baseline nowcasting method to the generalised additive model (GAM) nowcasting method.
+Choosing a different nowcasting method is done by providing the corresponding configuration object to `nowcast()`.
+Baseline and GAM methods use the same weekly reporting triangles and return `baselinenowcast_df` draws, so
+the same summary and output functions work with either method.
+
+GAM support uses the optional packages `mgcv` (at least 1.9-5) and `gratia`
+(at least 0.11.2). These versions require R 4.4 or later. Baseline nowcasting
+does not require these optional packages.
+
+```{r install, eval=FALSE}
+install.packages(c("mgcv", "gratia"))
+```
+
+## Fetch NHSN reporting data
+
+This example uses NHSN COVID-19 hospital admissions for California and New York
+from the COVID-19 Forecast Hub, using the same package data source as the
+[hub-data vignette](hubdata-source.html). We use the same period as the
+[getting-started vignette](getting-started.html): reference weeks from
+December 14, 2024 through July 5, 2025 (epiweeks 202450--202527), with reports
+through July 26, 2025 (epiweek 202530). We nowcast as of July 5 and compare
+the predictions with the counts available three weeks later. Only reports
+available at the nowcast date enter the models; later reports are retained
+for comparison.
+
+```{r create-source}
+source <- hub_data_source(
+  hub_name = "covid19-forecast-hub",
+  target = "wk inc covid hosp"
+)
+reference_start <- as.Date("2024-12-14")
+cutoff <- as.Date("2025-07-05")
+evaluation_date <- as.Date("2025-07-26")
+```
+
+Use `fetch_reporting_data()` to retrieve the cumulative reports.
+Fetching live hub data requires the optional `hubData` and `arrow` packages.
+
+```{r fetch-data, eval=FALSE}
+reports <- fetch_reporting_data(
+  source = source,
+  reference_dates = seq(reference_start, cutoff, by = "week"),
+  report_dates = seq(reference_start, evaluation_date, by = "week"),
+  locations = c("ca", "ny"),
+  dedup = "latest"
+)
+```
+
+The built vignette uses the saved reporting-data snapshot shared with the
+hub-data vignette, so its examples run without accessing the hub on each build.
+
+```{r cached-data, include=FALSE}
+reports <- readRDS("hubdata-source/reporting_data.rds")
+```
+
+## Prepare reporting triangles
+
+The GAM nowcasting framework can pool information across locations to potentially improve predictions for locations with sparse data.
+We set this up using the `strata` argument in `as_reporting_triangles()`, which creates a list of reporting triangle objects.
+The source returns cumulative counts with Saturday reference and report dates.
+Reporting delay is the number of weeks between `reference_date` and `report_date`.
+Keep each series' initial report when preparing the triangle so that its first
+increment includes the initially reported admissions.
+
+```{r prepare-triangles}
+reports <- reports |>
+  dplyr::filter(
+    reference_date >= reference_start, reference_date <= cutoff,
+    report_date >= reference_start, report_date <= evaluation_date
+  )
+reports_at_cutoff <- reports |>
+  dplyr::filter(report_date <= cutoff)
+
+triangles <- as_reporting_triangles(
+  reports_at_cutoff, strata = "location", nowcast_date = cutoff
+)
+triangles[c("location", "report_date")]
+```
+
+The collection stores one triangle and its effective observation date per
+location. If a location has not reported at the requested vintage, its latest
+available report is used. Advancing the requested vintage without new data
+does not create additional observed reporting intervals.
+
+For already incremental data, use `cumulative = FALSE`. Missing cumulative
+snapshots are not filled before differencing: an increase between available
+snapshots belongs to the later report. Observable gaps in the incremental
+triangle are then filled with zero; future cells remain missing.
+
+If triangles are already constructed, use
+`reporting_triangles(triangles, keys, report_dates)`. The keys are a data frame
+with one unique row per triangle, and observation dates must be supplied before
+truncation can discard information about the latest report.
+
+## Choose a GAM model
+
+Both GAM presets model incremental reports with a negative-binomial distribution
+and a log link.
+A smooth reference-time term represents changing true admission levels over time.
+Time and reporting-delay effects are additive on the log scale, so each fitted
+series has a reporting-delay profile assumed to be stable over the training window.
+
+- **GAM-Smooth** (`gam_smooth`) uses a smooth curve over reporting delays.
+  Neighbouring delays share information, assuming the reporting-delay profile varies
+  smoothly. The curve is not constrained to decrease with delay.
+- **GAM-RE** (`gam_re`) estimates a separate random effect for each reporting delay,
+  shrinking those effects towards a common mean. It allows abrupt differences
+  between delays without assuming neighbouring delays have similar effects.
+
+Both GAM presets fit the observed cells retained within the training window
+(`training_weeks = 10` by default), including partially reported recent weeks.
+Their uncertainty comes from coefficient draws and count sampling, with no
+separate calibration subset.
+This contrasts with the baseline method, which allocates historical data between estimating reporting delays for
+point nowcasts and calibrating uncertainty from retrospective nowcast errors,
+controlled by `scale_factor` and `prop_delay`.
+
+By default, each series is fitted independently. Sharing information across
+locations requires an explicit pooled model, as illustrated below.
+
+```{r baseline}
+draws <- 500L
+set.seed(1)
+baseline <- nowcast(triangles, nowcast_config(draws = draws))
+head(summarize_nowcast(baseline))
+```
+
+```{r gam-models, eval=gam_available}
+set.seed(1)
+smooth <- nowcast(triangles, gam_nowcast_config("gam_smooth", draws = draws))
+set.seed(1)
+random_effect <- nowcast(triangles, gam_nowcast_config("gam_re", draws = draws))
+head(summarize_nowcast(smooth))
+```
+
+Both GAM presets use a smooth reference-time term. GAM-Smooth adds a smooth
+delay term, while GAM-RE uses a random-effect delay term. Defaults are a maximum
+delay of seven weeks (including delay seven), a ten-week training window, and
+1,000 draws. The training window is strictly later than the effective report
+date minus ten weeks. Older reference dates remain in the returned output.
+
+### Compare recent nowcasts
+
+The plot shows the last seven reference weeks, comparing the incomplete data
+available at the cutoff, the nowcasts, and the eventual data. Here, "eventual"
+means the latest counts available by July 26, 2025, using the same comparison
+date as the getting-started example. The newest plotted reference week has
+four weeks of follow-up by that date, so these counts can still be revised.
+
+As in the [getting-started vignette](getting-started.html), we join both sets of
+reported counts to the nowcast summaries. We use 500 draws for the plotted
+comparisons and fewer draws for the other API examples.
+
+```{r plot-nowcasts, eval=gam_available, fig.width=8, fig.height=7, fig.cap="Baseline and GAM nowcasts using data available on July 5, 2025, compared with eventual counts available by July 26, 2025. Panels separate the models and states; blue bands show 90% prediction intervals.", class.source='fold-hide'}
+library(ggplot2)
+
+recent_start <- cutoff - 7 * 7
+at_nowcast_time <- reports_at_cutoff |>
+  dplyr::filter(reference_date >= recent_start, reference_date < cutoff) |>
+  dplyr::group_by(location, reference_date) |>
+  dplyr::slice_max(report_date, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup() |>
+  dplyr::select(reference_date, location, at_nowcast = count)
+
+eventual_counts <- reports |>
+  dplyr::filter(
+    report_date <= evaluation_date,
+    reference_date >= recent_start, reference_date < cutoff
+  ) |>
+  dplyr::group_by(location, reference_date) |>
+  dplyr::slice_max(report_date, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup() |>
+  dplyr::select(reference_date, location, eventual = count)
+
+comparison_counts <- at_nowcast_time |>
+  dplyr::left_join(eventual_counts, by = c("location", "reference_date"))
+
+model_draws <- dplyr::bind_rows(
+  Baseline = baseline,
+  `GAM-Smooth` = smooth,
+  `GAM-RE` = random_effect,
+  .id = "model"
+)
+model_intervals <- summarize_nowcast(model_draws, quantiles = c(.05, .5, .95)) |>
+  tidyr::pivot_wider(
+    names_from = output_type_id, values_from = value, names_prefix = "q"
+  ) |>
+  dplyr::filter(reference_date >= recent_start, reference_date < cutoff) |>
+  dplyr::left_join(comparison_counts, by = c("location", "reference_date")) |>
+  dplyr::mutate(model = factor(model, levels = c("Baseline", "GAM-Smooth", "GAM-RE")))
+
+count_colours <- c(
+  `At Nowcast Time` = "#E41A1C", `Nowcast (Median)` = "#377EB8",
+  `Eventual Data` = "#4DAF4A"
+)
+nowcast_plot <- ggplot(model_intervals, aes(x = reference_date)) +
+  geom_ribbon(aes(ymin = q0.05, ymax = q0.95, fill = "90% Prediction Interval"), alpha = .3) +
+  geom_point(aes(y = at_nowcast, colour = "At Nowcast Time"), size = 2) +
+  geom_line(aes(y = at_nowcast, colour = "At Nowcast Time"), linewidth = 1) +
+  geom_point(aes(y = q0.5, colour = "Nowcast (Median)"), size = 2, shape = 17) +
+  geom_line(aes(y = q0.5, colour = "Nowcast (Median)"), linewidth = 1, linetype = "dashed") +
+  geom_point(aes(y = eventual, colour = "Eventual Data"), size = 2, shape = 15) +
+  geom_line(aes(y = eventual, colour = "Eventual Data"), linewidth = 1, linetype = "dotted") +
+  facet_wrap(vars(location, model), scales = "free_y", ncol = 3,
+             labeller = labeller(location = c(ca = "California", ny = "New York"))) +
+  scale_colour_manual(values = count_colours, breaks = names(count_colours)) +
+  scale_fill_manual(values = c(`90% Prediction Interval` = "#377EB8")) +
+  scale_x_date(breaks = seq(recent_start, cutoff - 7, by = "2 weeks"), date_labels = "%b %d") +
+  labs(
+    title = "GAM and baseline nowcasts",
+    subtitle = "Nowcast: July 5, 2025 | eventual data: July 26, 2025",
+    x = "Reference Date (Week Ending)", y = "Hospital Admissions",
+    colour = "Count Type", fill = NULL
+  ) +
+  guides(
+    colour = guide_legend(order = 1, override.aes = list(
+      shape = c(16, 17, 15), linetype = c("solid", "dashed", "dotted")
+    )),
+    fill = guide_legend(order = 2)
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+nowcast_plot
+```
+
+The colours and symbols have the same meaning in every panel:
+
+- **At Nowcast Time** (red circles): the counts available on July 5.
+- **Nowcast (Median)** (blue triangles): the estimated counts after reporting
+  delays, with a shaded 90% prediction interval.
+- **Eventual Data** (green squares): the counts available by July 26.
+
+Single triangles also work, with an explicit effective observation date:
+
+```{r single-triangle, eval=gam_available}
+single <- nowcast(
+  triangles$triangle[[1]],
+  gam_nowcast_config(draws = 25),
+  nowcast_date = triangles$report_date[1]
+)
+```
+
+The existing `run_state_nowcasts` runner function accepts either configuration and continues fitting
+locations independently:
+
+```{r runners, eval=gam_available}
+mixed <- run_state_nowcasts(
+  reports_at_cutoff,
+  nowcast_config(draws = 25),
+  location_configs = list(ny = gam_nowcast_config(draws = 25))
+)
+attr(mixed, "failed_locations")
+```
+
+Run different signals separately through these runners. Use a keyed collection
+with `strata = c("location", "signal")` to retain multiple signals in the
+triangle interface. Summaries retain each key; different models should likewise
+be summarized separately unless their combined data explicitly include a
+model identifier.
+
+## Sampling approaches
+
+The default `sampling = "delay"` samples the GAM's fitted means jointly, then
+normalizes them over delays to obtain a reporting-completeness probability `p`
+for each series, reference date, and draw. The final count is
+`observed + rnbinom(size = observed, prob = p)`.
+
+With `sampling = "posterior"`, the model samples future incremental counts
+from the GAM's posterior predictive distribution and adds them to observed
+counts. Both approaches use joint Metropolis-Hastings coefficient draws within
+each fitted model.
+
+```{r posterior, eval=gam_available}
+posterior <- nowcast(
+  triangles, gam_nowcast_config(sampling = "posterior", draws = 25)
+)
+```
+
+Delay sampling produces zero when the observed total is zero. Posterior
+sampling may produce additional reports for such a series when a pooled fit
+has positive training observations. An entirely zero fitting group returns
+zeros without fitting a GAM.
+
+## Pool fitting and aggregate outputs separately
+
+`fit_strata = NULL` fits each series independently. A subset of keys fits one
+model for each combination of those keys; `character(0)` pools all series.
+Stratum effects are not added automatically, so specify them in a formula
+when needed.
+
+Two states are enough to demonstrate fitting a shared delay curve. Here we
+allow California and New York to have different admission levels and time
+trends, while sharing the smooth effect of reporting delay. The formula uses
+a fixed `location` effect and
+[factor-by time smooths](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/gam.models.html),
+without estimating a state random-effect variance from two locations.
+
+This is an illustration of the grouping interface. Whether the states have
+sufficiently similar reporting delays for this assumption to improve nowcasts
+would need retrospective evaluation across more vintages and locations.
+
+```{r pooled-fit, eval=gam_available}
+pooled_config <- gam_nowcast_config(
+  formula = ~ location + s(origin, by = location, k = 3, bs = "cr") +
+    s(lag, k = 3, bs = "cr"),
+  fit_strata = character(0),
+  draws = draws
+)
+set.seed(2)
+pooled <- nowcast(triangles, pooled_config)
+set.seed(2)
+total <- nowcast(triangles, pooled_config, output_strata = character(0))
+head(summarize_nowcast(total))
+```
+
+By default, each series remains separate in the output. `output_strata` names the keys to retain when summing final draws; `character(0)` sums all series.
+Contributors must have matching reference-date coverage. Within a pooled fit, draw IDs retain shared coefficient uncertainty. Separately fitted groups contribute independent draws.
+The same output aggregation works for baseline nowcasts.
+
+### Compare independent and shared-delay fits
+
+The next plot compares the independent GAM-Smooth fits above with this pooled
+model, using the same data-at-cutoff and eventual-data comparison. Its bottom
+row shows the CA + NY total, formed by summing each draw
+before computing quantiles.
+
+```{r plot-pooling, eval=gam_available, fig.width=8, fig.height=8, fig.cap="Independent and shared-delay GAM nowcasts at July 5, 2025, including their CA + NY totals, compared with eventual counts available by July 26, 2025. Red circles show data at the cutoff, blue triangles and bands show nowcasts and 90% prediction intervals, and green squares show eventual data.", class.source='fold-hide'}
+independent_total <- smooth |>
+  dplyr::group_by(reference_date, draw) |>
+  dplyr::summarise(
+    pred_count = sum(pred_count), nowcast = any(nowcast),
+    output_type = "samples", .groups = "drop"
+  ) |>
+  dplyr::mutate(location = "ca_ny")
+
+pooling_draws <- dplyr::bind_rows(
+  `Independent fits` = dplyr::bind_rows(smooth, independent_total),
+  `Shared delay` = dplyr::bind_rows(pooled, dplyr::mutate(total, location = "ca_ny")),
+  .id = "fit"
+)
+pooling_intervals <- summarize_nowcast(pooling_draws, quantiles = c(.05, .5, .95)) |>
+  tidyr::pivot_wider(
+    names_from = output_type_id, values_from = value, names_prefix = "q"
+  ) |>
+  dplyr::filter(reference_date >= recent_start, reference_date < cutoff)
+
+reported_total <- comparison_counts |>
+  dplyr::group_by(reference_date) |>
+  dplyr::summarise(
+    at_nowcast = sum(at_nowcast), eventual = sum(eventual), .groups = "drop"
+  ) |>
+  dplyr::mutate(location = "ca_ny")
+pooling_counts <- dplyr::bind_rows(comparison_counts, reported_total)
+pooling_intervals <- pooling_intervals |>
+  dplyr::left_join(pooling_counts, by = c("location", "reference_date")) |>
+  dplyr::mutate(location = factor(location, levels = c("ca", "ny", "ca_ny")))
+
+pooling_plot <- ggplot(pooling_intervals, aes(x = reference_date)) +
+  geom_ribbon(aes(ymin = q0.05, ymax = q0.95, fill = "90% Prediction Interval"), alpha = .3) +
+  geom_point(aes(y = at_nowcast, colour = "At Nowcast Time"), size = 2) +
+  geom_line(aes(y = at_nowcast, colour = "At Nowcast Time"), linewidth = 1) +
+  geom_point(aes(y = q0.5, colour = "Nowcast (Median)"), size = 2, shape = 17) +
+  geom_line(aes(y = q0.5, colour = "Nowcast (Median)"), linewidth = 1, linetype = "dashed") +
+  geom_point(aes(y = eventual, colour = "Eventual Data"), size = 2, shape = 15) +
+  geom_line(aes(y = eventual, colour = "Eventual Data"), linewidth = 1, linetype = "dotted") +
+  facet_wrap(vars(location, fit), scales = "free_y", ncol = 2,
+             labeller = labeller(location = c(ca = "California", ny = "New York", ca_ny = "CA + NY"))) +
+  scale_colour_manual(values = count_colours, breaks = names(count_colours)) +
+  scale_fill_manual(values = c(`90% Prediction Interval` = "#377EB8")) +
+  scale_x_date(breaks = seq(recent_start, cutoff - 7, by = "2 weeks"), date_labels = "%b %d") +
+  labs(
+    title = "Independent versus shared-delay GAMs",
+    subtitle = "Nowcast: July 5, 2025 | eventual data: July 26, 2025",
+    x = "Reference Date (Week Ending)", y = "Hospital Admissions",
+    colour = "Count Type", fill = NULL
+  ) +
+  guides(
+    colour = guide_legend(order = 1, override.aes = list(
+      shape = c(16, 17, 15), linetype = c("solid", "dashed", "dotted")
+    )),
+    fill = guide_legend(order = 2)
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+pooling_plot
+```
+
+Formula predictors include `origin` (days since the earliest training reference
+date plus one), `lag`, their factor versions `origin_f` and `lag_f`, and the
+series keys. The predictor `lag` encodes reporting delay as `7 * delay + 1`,
+where `delay` is measured in weeks. Additional predictors are `delay`, `reference_date`,
+`report_date`, `season`, `origin_s`, `dow_reference_date`, and
+`dow_reference_date_factor`. Seasons start October 1; `origin_s` uses each
+season's earliest training reference date. Keys are factors during fitting;
+outputs preserve their original types. Prediction reuses training coordinates
+and factor levels.
+
+Preset and custom formulas are fitted as specified, without automatically
+changing terms when data are sparse. If fitting fails, the original `mgcv`
+error is preserved alongside the affected series or fitting group.
+
+## Fixed delay offsets
+
+`delay_prior` supplies positive offsets for every delay in the configured
+horizon. Optional key columns allow offsets to vary across series. The offsets
+enter the GAM on the log scale in both training and prediction. They are fixed
+predictors, not a distribution of uncertain prior parameters.
+
+```{r delay-offset, eval=gam_available}
+offsets <- data.frame(delay = 0:7, offset = exp(-(0:7) / 2))
+with_offsets <- nowcast(
+  triangles, gam_nowcast_config(delay_prior = offsets, draws = 25)
+)
+```
+
+Without offsets, fitting and prediction stop at the largest delay with positive
+training counts in the fitting group. With offsets, the entire configured
+horizon is retained. In both cases, observed totals come from the full
+configured triangle.
+
+## Revisions, output, and failures
+
+Negative increments are redistributed backward after maximum-delay truncation.
+For example, increments `100, 20, -5` become `100, 15, 0`, preserving the observed
+total of 115. Revisions outside the configured horizon have already been
+excluded. The GAM estimates additional nonnegative reports and cannot predict
+future downward revisions.
+
+Every output contains `reference_date`, `pred_count`, `draw`, `output_type`,
+`nowcast`, and retained series keys. Complete dates have repeated observed-count
+draws. `nowcast` describes missing cells in the configured triangle; it can
+remain `TRUE` for deterministic draws when fitted delay support ends earlier.
+Aggregated rows are flagged if any contributor is incomplete.
+
+`summarize_nowcast()` preserves all series keys. Parquet output also preserves
+them, but the existing location-partitioned writer requires a `location` column.
+A total with location aggregated away can still be summarized in memory.
+
+Fit and sampling failures are errors with group context. A direct grouped
+`nowcast()` call fails as a whole rather than returning partial totals. Location
+runners retain their existing per-location failure handling. No convergence or
+sampling error is silently replaced by zeros.

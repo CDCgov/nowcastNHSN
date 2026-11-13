@@ -10,9 +10,9 @@ summarize_nowcast(
 )
 }
 \arguments{
-\item{nowcast_results}{A data frame as returned by \code{\link[=run_state_nowcasts]{run_state_nowcasts()}}
-or \code{\link[=run_single_nowcast]{run_single_nowcast()}}, containing columns \code{reference_date}, \code{location},
-\code{pred_count}, and \code{draw}.}
+\item{nowcast_results}{A data frame as returned by \code{\link[=nowcast]{nowcast()}},
+\code{\link[=run_state_nowcasts]{run_state_nowcasts()}}, or \code{\link[=run_single_nowcast]{run_single_nowcast()}}, containing
+\code{reference_date}, \code{pred_count}, \code{draw}, and optional series keys.}
 
 \item{quantiles}{Numeric vector of quantiles to compute. Default uses
 forecast hub standard: \code{c(0.01, 0.025, seq(0.05, 0.95, by = 0.05), 0.975, 0.99)}.}
@@ -21,7 +21,7 @@ forecast hub standard: \code{c(0.01, 0.025, seq(0.05, 0.95, by = 0.05), 0.975, 0
 A data frame in forecast hub format with columns:
 \itemize{
 \item \code{reference_date}: The reference date
-\item \code{location}: Geographic identifier
+\item Series keys, such as \code{location} and \code{signal}, when present in the input
 \item \code{output_type}: Always "quantile"
 \item \code{output_type_id}: Quantile level as character (e.g., "0.5")
 \item \code{value}: The prediction value
@@ -29,7 +29,9 @@ A data frame in forecast hub format with columns:
 }
 \description{
 Takes nowcast output with multiple draws and summarizes into
-prediction intervals per location and reference date in forecast hub format.
+prediction intervals per reference date and series in forecast hub format.
+All columns other than the standard nowcast value/draw fields are retained
+as series keys, so signals and other strata are summarized separately.
 }
 \examples{
 \dontrun{

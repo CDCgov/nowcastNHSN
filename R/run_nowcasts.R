@@ -12,8 +12,9 @@
 #' @param data A data frame of reporting data as returned by
 #'   [fetch_reporting_data()], containing columns `reference_date`,
 #'   `report_date`, `count`, `location`, and `signal`.
-#' @param config A `nowcast_config` object to use as the default for all
-#'   locations.
+#' @param config A [nowcast_config()] or [gam_nowcast_config()] object to use
+#'   as the default for all locations. Locations are fitted independently;
+#'   use [nowcast()] directly for cross-location pooling.
 #' @param location_configs Optional named list of `nowcast_config` objects
 #'   keyed by location code (e.g., `list(ca = config_ca, ny = config_ny)`).
 #'   These override the default `config` for specific locations.
@@ -132,34 +133,23 @@ run_state_nowcasts <- function(
 
   cli::cli_alert_info("Processing {length(locs_to_process)} location(s)")
 
-  # Convert cumulative to incremental counts if needed
-  if (cumulative) {
-    incremental_data <- cumulative_to_incremental(
-      data,
-      group_cols = c("reference_date", "location", "signal")
-    )
-  } else {
-    incremental_data <- data
-  }
-
   # Determine nowcast date
   if (is.null(nowcast_date)) {
     nowcast_date <- max(data$report_date)
   }
 
-  # Set up parallel if requested
+  # Workers must load the installed package, including its S3 methods.
   if (parallel) {
-    if (!requireNamespace("mirai", quietly = TRUE)) {
-      cli::cli_abort(c(
-        "Package {.pkg mirai} is required for parallel processing.",
-        i = "Install it with {.code install.packages('mirai')}"
-      ))
-    }
-    mirai::daemons(0)
-    mirai::daemons(
-      "default",
-      dispatcher = TRUE
+    rlang::check_installed(
+      c("mirai", "carrier"),
+      reason = "for parallel processing"
     )
+    if (is.null(mirai::info())) {
+      mirai::daemons(min(2L, length(locs_to_process)), dispatcher = TRUE)
+      on.exit(mirai::daemons(0), add = TRUE)
+    }
+    paths <- .libPaths()
+    mirai::everywhere(.libPaths(paths), paths = paths)
     cli::cli_alert_info("Using parallel processing via {.pkg mirai}")
   }
 
@@ -169,11 +159,11 @@ run_state_nowcasts <- function(
       {
         loc_config <- get_config_for_loc(loc)
         run_single_nowcast(
-          data = incremental_data,
+          data = data,
           location = loc,
           config = loc_config,
           nowcast_date = nowcast_date,
-          cumulative = FALSE # Already converted above
+          cumulative = cumulative
         )
       },
       error = function(e) {
@@ -185,30 +175,68 @@ run_state_nowcasts <- function(
     )
   }
 
-  # Process each location
+  # Send explicit inputs to workers rather than a development namespace.
   if (parallel) {
     raw_results <- purrr::map(
       locs_to_process,
       purrr::in_parallel(
-        \(loc) nowcast_one(loc),
-        nowcast_one = nowcast_one,
-        get_config_for_loc = get_config_for_loc,
-        incremental_data = incremental_data,
-        nowcast_date = nowcast_date
+        function(loc) {
+          loc_config <- if (
+            !is.null(location_configs) && loc %in% names(location_configs)
+          ) {
+            location_configs[[loc]]
+          } else {
+            config
+          }
+          tryCatch(
+            nowcastNHSN::run_single_nowcast(
+              data,
+              loc,
+              loc_config,
+              nowcast_date,
+              cumulative = cumulative
+            ),
+            error = function(e) {
+              structure(
+                list(message = conditionMessage(e)),
+                class = "nowcast_worker_error"
+              )
+            }
+          )
+        },
+        config = config,
+        location_configs = location_configs,
+        data = data,
+        nowcast_date = nowcast_date,
+        cumulative = cumulative
       )
     )
-    mirai::daemons(0)
+    for (i in seq_along(raw_results)) {
+      if (inherits(raw_results[[i]], "nowcast_worker_error")) {
+        cli::cli_alert_warning(
+          "Failed to process {.val {locs_to_process[i]}}: {raw_results[[i]]$message}"
+        )
+        raw_results[i] <- list(NULL)
+      }
+    }
   } else {
-    raw_results <- purrr::map(
-      locs_to_process,
-      nowcast_one,
-      .progress = TRUE
-    )
+    raw_results <- purrr::map(locs_to_process, nowcast_one, .progress = TRUE)
   }
 
   # Identify failures by checking for NULLs
   failed_locations <- locs_to_process[purrr::map_lgl(raw_results, is.null)]
-  results <- purrr::list_rbind(raw_results)
+  successful <- Filter(Negate(is.null), raw_results)
+  results <- if (length(successful)) {
+    restore_nowcast_output(do.call(rbind, lapply(successful, as.data.frame)))
+  } else {
+    restore_nowcast_output(data.frame(
+      pred_count = numeric(),
+      reference_date = as.Date(character()),
+      draw = integer(),
+      nowcast = logical(),
+      location = character()
+    ))
+  }
 
   # Attach failed locations as attribute
   attr(results, "failed_locations") <- failed_locations
@@ -230,18 +258,18 @@ run_state_nowcasts <- function(
 #' Run nowcast for a single location
 #'
 #' @description
-#' Runs the baselinenowcast model for a single geographic location.
+#' Runs the configured model for a single geographic location and signal.
 #' This is the inner function called by [run_state_nowcasts()] and can
 #' also be used directly for Azure single-state entrypoint scripts.
 #'
-#' When called directly (not via [run_state_nowcasts()]), this function
-#' converts cumulative counts to incremental counts internally.
+#' This function prepares a reporting triangle and calls [nowcast()].
+#' Each call fits one location independently; use [nowcast()] directly for
+#' pooled or stratified models.
 #'
 #' @param data A data frame of reporting data (cumulative or incremental).
-#'   When called via [run_state_nowcasts()], data is already incremental.
-#'   When called directly, cumulative data is converted automatically.
+#'   Cumulative data is converted automatically when `cumulative = TRUE`.
 #' @param location Character. The location code to process.
-#' @param config A `nowcast_config` object.
+#' @param config A [nowcast_config()] or [gam_nowcast_config()] object.
 #' @param nowcast_date Date. The nowcast date.
 #' @param cumulative Logical. If `TRUE` (default), converts cumulative counts
 #'   to incremental. Set to `FALSE` if data is already incremental.
@@ -266,53 +294,39 @@ run_single_nowcast <- function(
   nowcast_date,
   cumulative = TRUE
 ) {
-  # Get uncertainty functions from config
-  uncertainty_fns <- get_uncertainty_fns(
-    config$uncertainty_model,
-    robust_sample = isTRUE(config$robust_sample)
+  # Preserve legacy single-location calls using an unclassed baseline list.
+  if (is.list(config) && identical(class(config), "list")) {
+    class(config) <- c("nowcast_config", "list")
+  }
+  validate_nowcast_config(config)
+  checkmate::assert_character(location, len = 1L, any.missing = FALSE)
+  checkmate::assert_date(nowcast_date, len = 1L, any.missing = FALSE)
+  validate_reporting_data(
+    data,
+    c(
+      "reference_date",
+      "report_date",
+      "count",
+      "location",
+      "signal"
+    )
   )
-
-  # Filter to location
   loc_data <- data |>
-    dplyr::filter(.data$location == .env$location) |>
-    dplyr::filter(.data$report_date <= .env$nowcast_date)
-
-  if (nrow(loc_data) == 0) {
+    dplyr::filter(
+      .data$location == .env$location,
+      .data$report_date <= .env$nowcast_date
+    )
+  if (!nrow(loc_data)) {
     cli::cli_abort("No data available for location {.val {location}}")
   }
-
-  # Convert cumulative to incremental if needed
-  if (cumulative) {
-    loc_data <- cumulative_to_incremental(
-      loc_data,
-      group_cols = c("reference_date", "location", "signal")
-    )
+  if (anyNA(loc_data$signal) || length(unique(loc_data$signal)) != 1L) {
+    cli::cli_abort("Location runners require exactly one signal per location.")
   }
-
-  # Create reporting triangle
-  reporting_triangle <- loc_data |>
-    baselinenowcast::as_reporting_triangle(delays_unit = "weeks") |>
-    baselinenowcast::truncate_to_delay(max_delay = config$max_delay)
-
-  # Run nowcast
-  nowcast_result <- baselinenowcast::baselinenowcast(
-    reporting_triangle,
-    scale_factor = config$scale_factor,
-    prop_delay = config$prop_delay,
-    draws = config$draws,
-    uncertainty_model = uncertainty_fns$uncertainty_model,
-    uncertainty_sampler = uncertainty_fns$uncertainty_sampler
+  triangles <- as_reporting_triangles(
+    loc_data,
+    strata = "location",
+    nowcast_date = nowcast_date,
+    cumulative = cumulative
   )
-
-  # Clamp negative predicted counts to zero if requested
-  if (isTRUE(config$nonneg_pred)) {
-    nowcast_result <- nowcast_result |>
-      dplyr::mutate(pred_count = pmax(.data$pred_count, 0))
-  }
-
-  # Add location column
-  nowcast_result <- nowcast_result |>
-    dplyr::mutate(location = .env$location)
-
-  nowcast_result
+  nowcast(triangles, config)
 }

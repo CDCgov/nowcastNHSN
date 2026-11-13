@@ -8,12 +8,11 @@ run_single_nowcast(data, location, config, nowcast_date, cumulative = TRUE)
 }
 \arguments{
 \item{data}{A data frame of reporting data (cumulative or incremental).
-When called via \code{\link[=run_state_nowcasts]{run_state_nowcasts()}}, data is already incremental.
-When called directly, cumulative data is converted automatically.}
+Cumulative data is converted automatically when \code{cumulative = TRUE}.}
 
 \item{location}{Character. The location code to process.}
 
-\item{config}{A \code{nowcast_config} object.}
+\item{config}{A \code{\link[=nowcast_config]{nowcast_config()}} or \code{\link[=gam_nowcast_config]{gam_nowcast_config()}} object.}
 
 \item{nowcast_date}{Date. The nowcast date.}
 
@@ -24,12 +23,13 @@ to incremental. Set to \code{FALSE} if data is already incremental.}
 A data frame of nowcast results for the single location.
 }
 \description{
-Runs the baselinenowcast model for a single geographic location.
+Runs the configured model for a single geographic location and signal.
 This is the inner function called by \code{\link[=run_state_nowcasts]{run_state_nowcasts()}} and can
 also be used directly for Azure single-state entrypoint scripts.
 
-When called directly (not via \code{\link[=run_state_nowcasts]{run_state_nowcasts()}}), this function
-converts cumulative counts to incremental counts internally.
+This function prepares a reporting triangle and calls \code{\link[=nowcast]{nowcast()}}.
+Each call fits one location independently; use \code{\link[=nowcast]{nowcast()}} directly for
+pooled or stratified models.
 }
 \examples{
 \dontrun{

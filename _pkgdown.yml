@@ -31,6 +31,8 @@ navbar:
         href: articles/cfa-dataops-source.html
       - text: State-Level Nowcasts
         href: articles/state-nowcasts.html
+      - text: GAM Nowcasting
+        href: articles/gam-nowcasting.html
 
 reference:
 - title: Data Sources
@@ -46,7 +48,12 @@ reference:
 - title: Nowcasting
   desc: Functions for running nowcasts and configuring pipeline
   contents:
+  - nowcast
+  - reporting_triangles
+  - as_reporting_triangles
   - nowcast_config
+  - gam_nowcast_config
+  - validate_nowcast_config
   - nowcast_config_test
   - print.nowcast_config
   - run_state_nowcasts
