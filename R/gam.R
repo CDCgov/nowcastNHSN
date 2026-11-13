@@ -272,24 +272,6 @@ fit_nowcast_gam <- function(training, config, keys) {
         "s(lag_f, bs = 're')"
       }
     )
-    n_origin <- length(unique(training$origin))
-    n_lag <- length(unique(training$lag))
-    if (n_origin < 4L) {
-      terms[1] <- "s(origin_f, bs = 're')"
-    }
-    if (n_lag < 3L) {
-      terms[2] <- "s(lag_f, bs = 're')"
-    }
-    if (n_origin == 1L) {
-      terms[1] <- NA_character_
-    }
-    if (n_lag == 1L) {
-      terms[2] <- NA_character_
-    }
-    terms <- terms[!is.na(terms)]
-    if (!length(terms)) {
-      terms <- "1"
-    }
     formula <- stats::as.formula(paste("~", paste(terms, collapse = " + ")))
   }
   predictors <- c(

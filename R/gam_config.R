@@ -10,7 +10,8 @@
 #'   Available predictors are `origin`, `origin_f`, `lag`, `lag_f`, `delay`,
 #'   `season`, `origin_s`, `dow_reference_date`, `dow_reference_date_factor`,
 #'   `reference_date`, `report_date`, and series keys (converted to factors for
-#'   fitting). Small-data substitutions apply only to presets.
+#'   fitting). Preset and custom formulas are fitted without automatic
+#'   simplification when data are sparse.
 #' @param sampling `"delay"` samples fitted means, converts them to reporting
 #'   completeness, and samples unreported counts. `"posterior"` samples future
 #'   increments directly from the fitted GAM's posterior predictive distribution.

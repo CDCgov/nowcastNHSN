@@ -35,7 +35,8 @@ report date. Must exceed \code{max_delay}. The lower boundary is exclusive.}
 Available predictors are \code{origin}, \code{origin_f}, \code{lag}, \code{lag_f}, \code{delay},
 \code{season}, \code{origin_s}, \code{dow_reference_date}, \code{dow_reference_date_factor},
 \code{reference_date}, \code{report_date}, and series keys (converted to factors for
-fitting). Small-data substitutions apply only to presets.}
+fitting). Preset and custom formulas are fitted without automatic
+simplification when data are sparse.}
 
 \item{sampling}{\code{"delay"} samples fitted means, converts them to reporting
 completeness, and samples unreported counts. \code{"posterior"} samples future

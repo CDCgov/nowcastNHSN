@@ -295,12 +295,90 @@ test_that("GAM smooth fits recover a known multiplicative surface", {
     training$count,
     tolerance = 1e-5
   )
-  short <- training[training$origin <= 8 & training$lag <= 8, ]
-  fit <- fit_nowcast_gam(short, gam_nowcast_config(), character())
-  expect_setequal(
-    all.vars(stats::formula(fit)),
-    c("count", "origin_f", "lag_f")
+  # Three reference dates support the requested smooth without substitution.
+  short <- training[training$origin <= 15, ]
+  for (model in c("gam_smooth", "gam_re")) {
+    fit <- fit_nowcast_gam(short, gam_nowcast_config(model), character())
+    expect_setequal(
+      all.vars(stats::formula(fit)),
+      c("count", "origin", if (model == "gam_smooth") "lag" else "lag_f")
+    )
+  }
+})
+
+test_that("unsupported GAM presets report mgcv errors", {
+  skip_without_gam()
+  training <- expand.grid(origin = c(1, 8), lag = c(1, 8))
+  training$origin_f <- factor(training$origin)
+  training$lag_f <- factor(training$lag)
+  training$count <- c(16, 64, 8, 32)
+  for (model in c("gam_smooth", "gam_re")) {
+    expect_error(
+      fit_nowcast_gam(training, gam_nowcast_config(model), character()),
+      "origin has insufficient unique values"
+    )
+
+    # A single reference date must not silently drop the reference-time term.
+    expect_error(
+      fit_nowcast_gam(
+        training[training$origin == 1, ],
+        gam_nowcast_config(model),
+        character()
+      ),
+      "origin has insufficient unique values"
+    )
+  }
+  # A simpler model can still be chosen explicitly for these same observations.
+  fit <- fit_nowcast_gam(
+    training,
+    gam_nowcast_config(formula = ~1),
+    character()
   )
+  expect_equal(all.vars(stats::formula(fit)), "count")
+  expect_true(all(is.finite(stats::predict(fit, type = "response"))))
+})
+
+test_that("GAM fit errors preserve causes unrelated to data support", {
+  skip_without_gam()
+  training <- expand.grid(origin = seq(1, 29, 7), lag = seq(1, 22, 7))
+  training$count <- 10
+  predictor_error <- simpleError("Custom predictor could not be evaluated.")
+  failing_predictor <- function(x) stop(predictor_error)
+  error <- tryCatch(
+    fit_nowcast_gam(
+      training,
+      gam_nowcast_config(formula = ~ failing_predictor(origin)),
+      character()
+    ),
+    error = identity
+  )
+  expect_identical(error, predictor_error)
+})
+
+test_that("GAM complexity failures identify the affected series", {
+  skip_without_gam()
+  data <- data.frame(
+    reference_date = as.Date(c("2025-01-04", "2025-01-04", "2025-01-11")),
+    report_date = as.Date(c("2025-01-04", "2025-01-11", "2025-01-11")),
+    count = c(10, 13, 20),
+    location = "ca",
+    signal = "covid"
+  )
+  collection <- suppressMessages(as_reporting_triangles(data, "location"))
+  config <- gam_nowcast_config(max_delay = 1, training_weeks = 3, draws = 2)
+  error <- tryCatch(nowcast(collection, config), error = identity)
+  expect_match(conditionMessage(error), "location=ca")
+  expect_match(
+    conditionMessage(error),
+    "origin has insufficient unique values"
+  )
+  expect_match(
+    conditionMessage(error$parent),
+    "origin has insufficient unique values"
+  )
+  failed <- suppressMessages(run_state_nowcasts(data, config))
+  expect_equal(attr(failed, "failed_locations"), "ca")
+  expect_equal(nrow(failed), 0)
 })
 
 test_that("training and prediction reuse seasonal coordinates and factor levels", {

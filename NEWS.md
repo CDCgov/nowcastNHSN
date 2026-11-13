@@ -4,6 +4,7 @@
   reporting-triangle inputs and `baselinenowcast_df` outputs (#38).
 * Add optional GAM-Smooth and GAM-RE nowcasting, custom formulas, delay-based
   and posterior-predictive sampling, and fixed delay offsets.
+  Formulas are fitted without automatic simplification.
 * Add keyed triangle collections, independent and pooled GAM fits, and output
   aggregation by summing aligned final draws. Quantile summaries preserve
   series identifiers, including signals and other strata.

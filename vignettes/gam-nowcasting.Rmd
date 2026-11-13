@@ -421,9 +421,9 @@ season's earliest training reference date. Keys are factors during fitting;
 outputs preserve their original types. Prediction reuses training coordinates
 and factor levels.
 
-Preset formulas use random-effect substitutions when there are too few distinct
-dates or delays for their smooths. Custom formulas are used as supplied and
-produce an error if there is insufficient support.
+Preset and custom formulas are fitted as specified, without automatically
+changing terms when data are sparse. If fitting fails, the original `mgcv`
+error is preserved alongside the affected series or fitting group.
 
 ## Fixed delay offsets
 
