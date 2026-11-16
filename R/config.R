@@ -135,37 +135,46 @@ print.nowcast_config <- function(x, ...) {
   invisible(x)
 }
 
-#' Validate a nowcast_config object
+#' Validate a nowcast configuration
 #'
-#' @param config A `nowcast_config` object to validate.
-#' @returns `TRUE` invisibly if valid, otherwise throws an error.
-#' @keywords internal
-#' @noRd
+#' @param config A configuration created by [nowcast_config()] or
+#'   [gam_nowcast_config()].
+#' @returns `TRUE` invisibly if valid; otherwise an error.
+#' @details Model implementations can supply an S3 validation method alongside
+#'   their [nowcast()] method.
+#' @export
 validate_nowcast_config <- function(config) {
-  if (!inherits(config, "nowcast_config")) {
-    cli::cli_abort(c(
-      "Invalid configuration object.",
-      x = "Expected a {.cls nowcast_config} object.",
-      i = "Use {.fn nowcast_config} to create a valid configuration."
-    ))
-  }
+  UseMethod("validate_nowcast_config")
+}
 
-  required_fields <- c(
+#' @rdname validate_nowcast_config
+#' @export
+validate_nowcast_config.default <- function(config) {
+  cli::cli_abort(
+    "Invalid configuration object; use a nowcast configuration constructor."
+  )
+}
+
+#' @rdname validate_nowcast_config
+#' @export
+validate_nowcast_config.nowcast_config <- function(config) {
+  required <- c(
     "max_delay",
     "scale_factor",
     "prop_delay",
     "uncertainty_model",
     "draws"
   )
-
-  missing_fields <- setdiff(required_fields, names(config))
-  if (length(missing_fields) > 0) {
-    cli::cli_abort(c(
-      "Configuration is missing required fields.",
-      x = "Missing: {.field {missing_fields}}"
-    ))
+  missing <- setdiff(required, names(config))
+  if (length(missing)) {
+    cli::cli_abort(
+      "Configuration is missing required fields: {.val {missing}}."
+    )
   }
-
+  do.call(
+    nowcast_config,
+    config[intersect(names(config), names(formals(nowcast_config)))]
+  )
   invisible(TRUE)
 }
 

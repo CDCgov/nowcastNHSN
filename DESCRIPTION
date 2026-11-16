@@ -1,6 +1,6 @@
 Package: nowcastNHSN
 Title: Nowcasting Tools for NHSN Data
-Version: 0.2.0
+Version: 0.2.0.9000
 Authors@R:
     c(person("Sam", "Brand", email = "usi1@cdc.gov", role = c("aut", "cre")),
       person("Dylan", "Morris", email = "dzl1@cdc.gov", role = "ctb"))
@@ -13,15 +13,15 @@ BugReports: https://github.com/CDCgov/nowcastNHSN/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
-    baselinenowcast (>= 0.0.0.1000),
+    baselinenowcast (>= 0.2.2),
     checkmate,
     cli,
-    dplyr,
+    dplyr (>= 1.1.1),
     epidatr,
     forecasttools (>= 0.1.7),
     fs,
     lubridate,
-    purrr,
+    purrr (>= 1.1.0),
     rlang,
     vctrs
 Remotes:
@@ -32,11 +32,14 @@ Remotes:
 Suggests:
     argparse,
     arrow,
+    carrier (>= 0.3.0),
     curl,
     ggplot2,
+    gratia (>= 0.11.2),
     hubData,
     httptest2,
     knitr,
+    mgcv (>= 1.9-5),
     mirai,
     pkgdown,
     rmarkdown,

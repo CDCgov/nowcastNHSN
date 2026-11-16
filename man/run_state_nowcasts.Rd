@@ -19,8 +19,9 @@ run_state_nowcasts(
 \code{\link[=fetch_reporting_data]{fetch_reporting_data()}}, containing columns \code{reference_date},
 \code{report_date}, \code{count}, \code{location}, and \code{signal}.}
 
-\item{config}{A \code{nowcast_config} object to use as the default for all
-locations.}
+\item{config}{A \code{\link[=nowcast_config]{nowcast_config()}} or \code{\link[=gam_nowcast_config]{gam_nowcast_config()}} object to use
+as the default for all locations. Locations are fitted independently;
+use \code{\link[=nowcast]{nowcast()}} directly for cross-location pooling.}
 
 \item{location_configs}{Optional named list of \code{nowcast_config} objects
 keyed by location code (e.g., \code{list(ca = config_ca, ny = config_ny)}).
