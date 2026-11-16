@@ -1,4 +1,4 @@
-# nowcastNHSN (development version)
+# nowcastNHSN 0.3.0
 
 * Add `nowcast()`, an S3 generic dispatching on configuration, with common
   reporting-triangle inputs and `baselinenowcast_df` outputs (#38).
